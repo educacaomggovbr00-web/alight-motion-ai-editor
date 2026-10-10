@@ -1,0 +1,30 @@
+name: Diagnosticar instalacao Adobe (Premiere)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'premiere-linux/windows/diagnosticar-installer.ps1'
+      - '.github/workflows/diagnosticar-instalacao-adobe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  investigar-instalador-adobe:
+    runs-on: windows-2025
+    timeout-minutes: 12
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+      - name: Tentar instalar Creative Cloud e diagnosticar erros sem expor logs brutos
+        shell: pwsh
+        run: ./premiere-linux/windows/diagnosticar-installer.ps1
+      - name: Guardar somente o relatorio sanitizado
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostico-instalador-adobe
+          path: relatorios/premiere-instalador/resultado.md
+          if-no-files-found: error
+          retention-days: 7
