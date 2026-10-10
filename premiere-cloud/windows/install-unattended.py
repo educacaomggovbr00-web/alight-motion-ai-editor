@@ -147,8 +147,8 @@ def run(iso, root, reports):
             elapsed = time.monotonic() - started
             if shutil.disk_usage(root).free < 8*GIB:
                 report['reason'] = 'reserva_fisica_8GiB'; break
-            if elapsed >= 2700:
-                report['reason'] = 'limite_45min'; break
+            if elapsed >= 18000:
+                report['reason'] = 'limite_5h'; break
             serial_path = root / 'serial.txt'
             first, warp = parse_evidence(serial_path.read_text(errors='replace') if serial_path.exists() else '')
             if first:
