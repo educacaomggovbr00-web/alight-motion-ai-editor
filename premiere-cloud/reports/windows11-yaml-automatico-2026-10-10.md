@@ -52,3 +52,15 @@ Recursos do runner continuam sujeitos às regras e cotas da conta GitHub.
 O XML usa imagem índice1 da ISO fixada. Se a Microsoft mudar o arquivo, a
 verificação SHA256 bloqueia o download; revisar versão, hash e índice antes de
 atualizar. Não usamos registros LabConfig, modificação de requisitos ou imagens mini.
+
+## Verificação desta entrega
+
+Onze testes Python passaram localmente, incluindo os quatro testes novos de
+evidência, erro do convidado, proteção de disco existente e XML. YAML foi lido
+e o workflow passou no actionlint1.7.7 oficial (binário verificado com o SHA256
+publicado na mesma release). CI validou também a sintaxe PowerShell dos scripts:
+https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38092720917
+
+Essa execução é de testes auxiliares. O workflow Windows11 de45min foi publicado
+para execução manual e **ainda não foi executado**. Não há nova instalação
+Windows completa comprovada nesta entrega; o experimento local anterior chegou18%.
