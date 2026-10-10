@@ -1,0 +1,60 @@
+name: Windows 11 - instalar VM e testar WARP
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows11-install-test
+  cancel-in-progress: false
+jobs:
+  install:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Instalar ferramentas livres do teste
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf swtpm xorriso tesseract-ocr tesseract-ocr-eng python3-pil acl
+          if [ -e /dev/kvm ]; then sudo setfacl -m "u:$(id -un):rw" /dev/kvm; fi
+      - name: Verificar espaco fisico antes do download
+        run: |
+          mkdir -p premiere-cloud/runtime/win11
+          python3 - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+          free = shutil.disk_usage(os.environ['RUNNER_TEMP']).free
+          result = {'scope':'preflight_host', 'freePhysicalBytes':free, 'requiredBeforeDownloadBytes':48*1024**3, 'windowsInstalledProven':False}
+          Path('premiere-cloud/runtime/win11/host.json').write_text(json.dumps(result, indent=2))
+          if free < 48*1024**3:
+              raise SystemExit('BLOQUEADO: menos de 48 GiB fisicos livres no runner. Nao sera criado disco ficticio para esconder isso.')
+          PY
+      - name: Baixar ISO oficial Microsoft e verificar SHA256
+        run: |
+          curl --fail --silent --show-error --proto '=https' --connect-timeout 20 --max-time 600 --max-filesize 8500000000 \
+            --output "$RUNNER_TEMP/windows11.iso" \
+            'https://software-static.download.prss.microsoft.com/dbazure/26300.9457.260913-1737.26h2_ge_release_svc_refresh_CLIENTENTERPRISEEVAL_OEMRET_x64FRE_pt-br.iso'
+          echo '29bd7592e832d32073d1637ce83689de5f375700a963b2d753e437cc64d76c09  '"$RUNNER_TEMP/windows11.iso" | sha256sum --check --strict
+      - name: Instalar Windows na VM nova (maximo 45 minutos)
+        run: |
+          python3 premiere-cloud/windows/install-unattended.py \
+            --iso "$RUNNER_TEMP/windows11.iso" \
+            --destination "$RUNNER_TEMP/windows11-machine" \
+            --reports premiere-cloud/runtime/win11
+      - name: Relatorios e captura somente (sem ISO ou disco Windows)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows11-install-evidence
+          path: |
+            premiere-cloud/runtime/win11/*.json
+            premiere-cloud/runtime/win11/*.png
+            premiere-cloud/runtime/win11/qemu.log
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Resumo
+        if: always()
+        run: |
+          echo 'Teste de VM temporaria. Consulte os JSON: sucesso exige primeiro boot Windows 11 e dispositivo WARP confirmado. Nenhum Premiere, login Adobe ou desktop interativo comprovado por este job.' >> "$GITHUB_STEP_SUMMARY"
