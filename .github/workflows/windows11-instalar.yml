@@ -31,12 +31,72 @@ jobs:
           if free < 48*1024**3:
               raise SystemExit('BLOQUEADO: menos de 48 GiB fisicos livres no runner. Nao sera criado disco ficticio para esconder isso.')
           PY
-      - name: Baixar ISO oficial Microsoft e verificar SHA256
+      # Cache separado dos artefatos: a ISO so e salva apos hash valido.
+      # A chave muda se a versao ISO ou hash oficial for trocado.
+      - name: Recuperar ISO verificada do cache GitHub
+        id: iso_cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/windows11.iso
+          key: win11-26h2-ptbr-29bd7592e832d32073d1637ce83689de5f375700a963b2d753e437cc64d76c09
+
+      - name: Baixar ISO oficial Microsoft apenas se ausente
+        if: steps.iso_cache.outputs.cache-hit != 'true'
+        shell: bash
         run: |
-          curl --fail --silent --show-error --proto '=https' --connect-timeout 20 --max-time 1800 --max-filesize 8500000000 \
-            --output "$RUNNER_TEMP/windows11.iso" \
-            'https://software-static.download.prss.microsoft.com/dbazure/26300.9457.260913-1737.26h2_ge_release_svc_refresh_CLIENTENTERPRISEEVAL_OEMRET_x64FRE_pt-br.iso'
+          set -euo pipefail
+          url='https://software-static.download.prss.microsoft.com/dbazure/26300.9457.260913-1737.26h2_ge_release_svc_refresh_CLIENTENTERPRISEEVAL_OEMRET_x64FRE_pt-br.iso'
+          target="$RUNNER_TEMP/windows11.iso"
+          # Dentro da mesma execucao, retoma bytes de tentativas curl interrompidas.
+          # Entre execucoes so a ISO INTEIRA validada fica no cache.
+          for attempt in 1 2 3; do
+            echo "Tentativa de download da ISO $attempt/3"
+            if curl --fail --silent --show-error --location \
+              --proto '=https' --proto-redir '=https' \
+              --connect-timeout 25 --max-time 1800 --max-filesize 8500000000 \
+              --continue-at - --output "$target" "$url"; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::Download oficial falhou apos tres tentativas. ISO parcial nao sera salva no cache."
+              exit 1
+            fi
+            sleep 5
+          done
+
+      - name: Verificar integridade SHA256 da ISO baixada ou recuperada
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=8170147840
+          actual=$(stat -c%s "$RUNNER_TEMP/windows11.iso")
+          if [ "$actual" -ne "$expected" ]; then
+            echo "::error::ISO nao possui o tamanho oficial esperado (bytes: $actual)."
+            exit 1
+          fi
           echo '29bd7592e832d32073d1637ce83689de5f375700a963b2d753e437cc64d76c09  '"$RUNNER_TEMP/windows11.iso" | sha256sum --check --strict
+
+      # Crucial: salva agora, ANTES da instalacao da VM.
+      # Se o instalador Windows falhar depois, o cache da ISO permanece reutilizavel.
+      - name: Guardar ISO completa no cache (antes de iniciar a VM)
+        if: steps.iso_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/windows11.iso
+          key: win11-26h2-ptbr-29bd7592e832d32073d1637ce83689de5f375700a963b2d753e437cc64d76c09
+
+      - name: Informar reutilizacao da ISO
+        shell: bash
+        env:
+          CACHE_HIT: ${{ steps.iso_cache.outputs.cache-hit }}
+        run: |
+          if [ "$CACHE_HIT" = true ]; then
+            echo "ISO restaurada do cache GitHub, SHA256 validado: nao foi necessario baixar novamente."
+            echo 'ISO: recuperada do cache, SHA256 valido.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ISO oficial baixada e etapa de cache executada."
+            echo 'ISO: download concluido, SHA256 valido; verifique no log da etapa cache/save se o armazenamento foi confirmado.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Instalar Windows na VM nova (maximo 5 horas)
         run: |
           python3 premiere-cloud/windows/install-unattended.py \
