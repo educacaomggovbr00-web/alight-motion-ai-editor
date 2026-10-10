@@ -1,5 +1,10 @@
 param([Parameter(Mandatory)][string]$Destination)
 $ErrorActionPreference = 'Stop'
+$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+$privateDestination = [IO.Path]::GetFullPath($Destination)
+if ($privateDestination -eq $repoRoot -or $privateDestination.StartsWith($repoRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Instaladores proprietarios devem ficar fora do checkout do repositorio'
+}
 # Confirme este link na documentação Adobe antes de usar; não aceita URLs arbitrárias.
 $url = 'https://ccmdls.adobe.com/AdobeProducts/StandaloneBuilds/ACCC/ESD/6.10.0/252.41/win64/ACCCx6_10_0_252_41.zip'
 if (Test-Path -LiteralPath $Destination) { throw 'Destino deve ser novo, privado e fora do repositorio' }

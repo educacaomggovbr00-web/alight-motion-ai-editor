@@ -51,3 +51,4 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Output) | Out-Nul
 $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $Output -Encoding utf8
 Write-Host "Diagnóstico salvo. Bloqueios automáticos: $($reasons.Count). Verificações manuais continuam obrigatórias."
 if ($reasons.Count -gt 0) { exit 2 }
+exit 0

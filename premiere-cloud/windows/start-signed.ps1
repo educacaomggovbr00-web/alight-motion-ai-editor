@@ -20,7 +20,7 @@ if ($Kind -eq 'Premiere' -and (Split-Path -Leaf $Executable) -ne 'Adobe Premiere
 }
 $version = (Get-Item -LiteralPath $Executable).VersionInfo.ProductVersion
 $hash = (Get-FileHash -LiteralPath $Executable -Algorithm SHA256).Hash
-$process = Start-Process -FilePath $Executable -PassThru
+$process = Start-Process -FilePath $Executable -WorkingDirectory (Split-Path -Parent ([IO.Path]::GetFullPath($Executable))) -PassThru
 $window = $false
 for ($i=0; $i -lt 30; $i++) {
     Start-Sleep -Seconds 1
