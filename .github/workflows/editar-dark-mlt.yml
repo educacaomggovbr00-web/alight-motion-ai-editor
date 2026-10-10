@@ -1,0 +1,112 @@
+name: Edit emo rap (Kdenlive MLT)
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'Link HTTPS direto para MP4 (vazio usa input/video.mp4)'
+        required: false
+        type: string
+      intensidade:
+        description: 'Forca dos flashes nas batidas'
+        required: true
+        default: medio
+        type: choice
+        options: [leve, medio, forte]
+      qualidade:
+        description: 'Resolucao vertical e FPS'
+        required: true
+        default: '540x960-30fps'
+        type: choice
+        options:
+          - '540x960-30fps'
+          - '720x1280-30fps'
+          - '1080x1920-30fps'
+          - '540x960-60fps'
+      segundos:
+        description: 'Limite em segundos (maximo 60)'
+        required: true
+        default: '25'
+        type: choice
+        options: ['10', '15', '25', '30', '45', '60']
+
+permissions:
+  contents: read
+
+jobs:
+  edit-dark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar motor Kdenlive MLT e ferramentas
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            kdenlive melt ffmpeg frei0r-plugins
+          dpkg-query -W kdenlive melt ffmpeg frei0r-plugins
+
+      - name: Editar video dark com MLT
+        shell: bash
+        env:
+          VIDEO_URL: ${{ inputs.video_url }}
+          INTENSIDADE: ${{ inputs.intensidade }}
+          QUALIDADE: ${{ inputs.qualidade }}
+          SEGUNDOS: ${{ inputs.segundos }}
+        run: |
+          set -euo pipefail
+          case "$QUALIDADE" in
+            '540x960-30fps') LARGURA=540; ALTURA=960; FPS=30 ;;
+            '720x1280-30fps') LARGURA=720; ALTURA=1280; FPS=30 ;;
+            '1080x1920-30fps') LARGURA=1080; ALTURA=1920; FPS=30 ;;
+            '540x960-60fps') LARGURA=540; ALTURA=960; FPS=60 ;;
+            *) echo 'Qualidade inválida'; exit 2 ;;
+          esac
+          case "$SEGUNDOS" in 10|15|25|30|45|60) ;; *) exit 2 ;; esac
+          case "$INTENSIDADE" in leve|medio|forte) ;; *) exit 2 ;; esac
+          mkdir -p output/mlt-dark
+          if [[ -n "$VIDEO_URL" ]]; then
+            python3 kdenlive-mlt/editar_dark.py \
+              --url "$VIDEO_URL" \
+              --intensidade "$INTENSIDADE" \
+              --largura "$LARGURA" --altura "$ALTURA" --fps "$FPS" \
+              --max-segundos "$SEGUNDOS" \
+              --output-dir output/mlt-dark
+          else
+            python3 kdenlive-mlt/editar_dark.py input/video.mp4 \
+              --intensidade "$INTENSIDADE" \
+              --largura "$LARGURA" --altura "$ALTURA" --fps "$FPS" \
+              --max-segundos "$SEGUNDOS" \
+              --output-dir output/mlt-dark
+          fi
+
+      - name: Validar MP4 real e metadados
+        run: |
+          test -s output/mlt-dark/editado.mp4
+          ffprobe -v error -show_entries stream=codec_name,width,height,r_frame_rate \
+            -show_entries format=duration -of json output/mlt-dark/editado.mp4
+          ffprobe -v error -select_streams v:0 -show_entries stream=codec_name \
+            -of csv=p=0 output/mlt-dark/editado.mp4 | grep -qx h264
+
+      - name: Baixar somente edit final
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meu-edit-emo-rap-mlt
+          path: output/mlt-dark/editado.mp4
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Projeto MLT com video preparado (opcional)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: projeto-dark-mlt
+          path: |
+            output/mlt-dark/projeto.mlt
+            output/mlt-dark/manifesto.json
+            output/mlt-dark/assets/preparado.mp4
+          if-no-files-found: error
+          retention-days: 7
