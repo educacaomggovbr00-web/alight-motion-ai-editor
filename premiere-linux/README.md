@@ -1,5 +1,9 @@
 # Experimento: Premiere Pro no Linux com Wine
 
+## Resultado atualizado: instalador Adobe EXECUTADO
+
+**[Veja o resultado detalhado da execucao do Creative Cloud no GitHub](RESULTADO-EXECUCAO-ADOBE.md).** Em 10/10/2026, o runner Windows do GitHub baixou o ZIP oficial, validou a assinatura do Set-up.exe e **iniciou o instalador**. Apos 90 segundos, ele ainda estava executando e foi encerrado. **Nenhuma instalacao de Creative Cloud ou Premiere Pro foi confirmada.** O link direto do Premiere retornou uma pagina HTML, nao um instalador.
+
 ## Resultado REAL do download Adobe (10/10/2026)
 
 **[Ler o relatório da tentativa de download](RESULTADO-DOWNLOAD-ADOBE.md).** O link direto do Premiere retornou **HTTP 403** e não entregou o aplicativo. Conseguimos baixar **331.128.777 bytes** do instalador oficial do Creative Cloud pelo CDN da Adobe; o executável tinha **assinatura Adobe válida**. O Creative Cloud **não é o Premiere**: o Premiere ainda não foi baixado, instalado ou executado. Nenhum instalador foi adicionado ao repositório.
