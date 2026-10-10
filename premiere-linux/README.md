@@ -1,5 +1,11 @@
 # Experimento: Premiere Pro no Linux com Wine
 
+## Resultado real do teste gráfico
+
+O teste no GitHub Actions de **10/10/2026** terminou com sucesso para Wine e Direct3D 11, mas os renderizadores OpenGL/Vulkan eram **llvmpipe (CPU)**, sem GPU física comprovada. Portanto, **o Adobe Premiere Pro não foi instalado nem validado**.
+
+**[Leia os resultados completos](RESULTADO-TESTE-GPU.md).**
+
 Esta pasta testa se o **Wine** (camada de compatibilidade de programas Windows)
 consegue iniciar em um Linux com tela virtual. **Não contém nem instala o Premiere Pro.**
 
