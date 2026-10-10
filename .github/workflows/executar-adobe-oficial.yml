@@ -1,0 +1,30 @@
+name: Executar instalador Adobe (experimental)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'premiere-linux/windows/executar-creative-cloud.ps1'
+      - '.github/workflows/executar-adobe-oficial.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  executar-instalador:
+    runs-on: windows-2025
+    timeout-minutes: 12
+    steps:
+      - name: Baixar codigo do repositorio
+        uses: actions/checkout@v4
+      - name: Baixar novamente e executar instalador Adobe oficial assinado
+        shell: pwsh
+        run: ./premiere-linux/windows/executar-creative-cloud.ps1
+      - name: Salvar relatorio sem guardar software Adobe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultado-execucao-adobe
+          path: relatorios/execucao-creative-cloud/resultado.md
+          if-no-files-found: error
+          retention-days: 7
