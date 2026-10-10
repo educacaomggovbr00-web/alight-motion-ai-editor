@@ -17,6 +17,20 @@ jobs:
       - run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Testar contrato, seguranca, audio e FFprobe
         run: python -m unittest discover -s premiere-cloud/tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Testar contrato UXP sem simular prova de Premiere instalado
+        run: |
+          node --check premiere-cloud/automation/uxp-panel/index.js
+          node --test premiere-cloud/tests/uxp-adapter.test.js
+      - name: Disponibilizar somente codigo do painel (sem instaladores Adobe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: premiere-uxp-panel-source
+          path: premiere-cloud/automation/uxp-panel/
+          retention-days: 7
+          if-no-files-found: error
   powershell-parser:
     runs-on: windows-2025
     timeout-minutes: 5

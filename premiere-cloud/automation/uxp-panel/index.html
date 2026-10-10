@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { padding: 14px; color: #eee; background: #232323; font-size: 14px; }
+    h2 { margin-bottom: 8px; }
+    p { margin-bottom: 10px; }
+    button { width: 100%; padding: 10px; margin-bottom: 8px; }
+    #status { padding: 10px; background: #353535; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h2>Premiere Cloud</h2>
+  <p>Teste experimental. Abra um projeto vazio e salvo no Premiere. Use mídia sintética primeiro.</p>
+  <p id="job-label">Nenhuma tarefa carregada.</p>
+  <button id="load">1. Carregar job.json</button>
+  <button id="inspect">2. Conferir projeto</button>
+  <button id="import">3. Importar mídia escolhida</button>
+  <button id="sequence">4. Criar sequência do clipe selecionado</button>
+  <button id="save-project">5. Salvar projeto</button>
+  <p>Selecione um preset .epr H.264/AAC criado no Premiere, com o formato da tarefa.</p>
+  <button id="export">6. Solicitar exportação MP4 pelo Premiere</button>
+  <button id="report">7. Salvar relatório privado</button>
+  <p id="status">Após exportar, valide o arquivo com FFprobe e assista ao resultado. Os presets de efeitos ainda não são aplicados.</p>
+  <script src="index.js"></script>
+</body>
+</html>

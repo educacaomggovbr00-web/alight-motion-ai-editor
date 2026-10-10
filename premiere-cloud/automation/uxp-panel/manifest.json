@@ -1,0 +1,16 @@
+{
+  "manifestVersion": 5,
+  "id": "br.educacaomggovbr.premiere.cloud.diagnostics",
+  "name": "Premiere Cloud — testes progressivos",
+  "version": "0.1.0",
+  "main": "index.html",
+  "host": {"app": "premierepro", "minVersion": "25.6.0"},
+  "requiredPermissions": {"localFileSystem": "request"},
+  "entrypoints": [{
+    "type": "panel",
+    "id": "premiereCloudTests",
+    "label": {"default": "Premiere Cloud"},
+    "minimumSize": {"width": 300, "height": 420},
+    "preferredFloatingSize": {"width": 380, "height": 560}
+  }]
+}

@@ -103,15 +103,24 @@ GUI externos; salve o projeto, feche o editor e desligue a máquina pelo provedo
 
 ## Automação Adobe: próximo teste pequeno
 
+Há agora um **[painel UXP experimental com manifest, interface e adapter](automation/uxp-panel/)**:
+carregar tarefa, conferir projeto, importar mídia, criar sequência do clipe selecionado,
+salvar e solicitar exportação MP4 pelo próprio Premiere usando um `.epr` real.
+O CI testa nove casos de contrato em Node e disponibiliza somente os fontes do painel.
+**O painel nunca foi executado no aplicativo Adobe; não comprova instalação ou exportação.**
+O workflow Actions ainda prepara tarefas; carregar o painel e os arquivos é uma etapa manual na sessão remota.
+
 UXP está oficialmente disponível a partir do Premiere 25.6. Após verificar a versão instalada,
 crie painel pelo [UXP Developer Tool, tutorial Adobe](https://developer.adobe.com/premiere-pro/uxp/plugins/)
 na máquina remota e carregue `automation/inspect-active-project.js` no contexto do painel.
 O método `Project.getActiveProject()` está na [API oficial](https://developer.adobe.com/premiere-pro/uxp/ppro-reference/classes/project).
 Este smoke test verifica somente acesso a um projeto aberto; **não foi executado no Premiere**.
-Não é um plugin empacotado nem um comando de terminal. Não existe executor headless implementado.
+A sonda simples é preservada. O novo painel tem fontes carregáveis no UDT, sem pacote `.ccx`
+ou distribuição validada. Não existe executor headless implementado.
 
-Próximos adapters: importar mídia → criar sequência → alterar uma propriedade/keyframe → salvar → exportar
-com preset real validado. Cada operação deverá usar a referência da versão instalada e provar resultado no projeto.
+O adapter inicial de importação/sequência/salvamento/solicitação de exportação está preparado, mas requer
+prova no host real. Próximos passos após isso: alterar uma propriedade/keyframe e validar efeitos/exportação.
+Cada operação deverá usar a referência da versão instalada e provar resultado no projeto.
 ExtendScript/CEP só após confirmar suporte efetivo dessa versão; QE DOM não é API pública suportada e não é utilizado.
 Velocity, interpolação Bezier, motion blur, RGB split e efeitos adicionais continuam pendentes; quando faltar API
 pública, executar pela interface ou template criado no Premiere e documentar. Não declarar suporte antes de testar.
