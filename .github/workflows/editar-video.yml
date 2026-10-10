@@ -18,7 +18,7 @@ on:
           - forte
   push:
     paths:
-      - 'input/**'
+      - 'input/video.mp4'
 
 permissions:
   contents: read
