@@ -2,10 +2,6 @@ name: Testar Wine para Premiere (experimental)
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - 'premiere-linux/**'
-      - '.github/workflows/testar-wine-premiere.yml'
 
 permissions:
   contents: read
