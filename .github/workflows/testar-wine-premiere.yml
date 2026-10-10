@@ -1,0 +1,37 @@
+name: Testar Wine para Premiere (experimental)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'premiere-linux/**'
+      - '.github/workflows/testar-wine-premiere.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostico-wine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar Wine e tela virtual
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends wine wine64 xvfb xauth mesa-utils
+
+      - name: Executar diagnóstico em ambiente isolado
+        shell: bash
+        run: bash premiere-linux/diagnostico.sh
+
+      - name: Salvar relatório mesmo em caso de falha
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostico-wine-linux
+          path: relatorios/premiere-linux/
+          if-no-files-found: warn
+          retention-days: 7
