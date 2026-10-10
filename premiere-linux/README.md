@@ -1,5 +1,9 @@
 # Experimento: Premiere Pro no Linux com Wine
 
+## Resultado real da etapa 3 (Windows)
+
+**[Ver relatório do teste Windows](RESULTADO-TESTE-WINDOWS.md).** No GitHub Actions, o runner padrão foi **Windows Server 2025**, com vídeo virtual **Microsoft Hyper-V Video**. O **Adobe Premiere Pro não estava instalado**. Não há GPU dedicada compatível comprovada. Portanto, **Premiere não foi executado**; o teste mostra as limitações reais do servidor.
+
 ## Resultado real do teste gráfico
 
 O teste no GitHub Actions de **10/10/2026** terminou com sucesso para Wine e Direct3D 11, mas os renderizadores OpenGL/Vulkan eram **llvmpipe (CPU)**, sem GPU física comprovada. Portanto, **o Adobe Premiere Pro não foi instalado nem validado**.
