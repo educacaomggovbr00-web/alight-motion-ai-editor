@@ -9,7 +9,7 @@ concurrency:
 jobs:
   install:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,7 +33,7 @@ jobs:
           PY
       - name: Baixar ISO oficial Microsoft e verificar SHA256
         run: |
-          curl --fail --silent --show-error --proto '=https' --connect-timeout 20 --max-time 600 --max-filesize 8500000000 \
+          curl --fail --silent --show-error --proto '=https' --connect-timeout 20 --max-time 1200 --max-filesize 8500000000 \
             --output "$RUNNER_TEMP/windows11.iso" \
             'https://software-static.download.prss.microsoft.com/dbazure/26300.9457.260913-1737.26h2_ge_release_svc_refresh_CLIENTENTERPRISEEVAL_OEMRET_x64FRE_pt-br.iso'
           echo '29bd7592e832d32073d1637ce83689de5f375700a963b2d753e437cc64d76c09  '"$RUNNER_TEMP/windows11.iso" | sha256sum --check --strict
