@@ -1,5 +1,11 @@
 # Experimento: Premiere Pro no Linux com Wine
 
+## Teste mais recente — diagnóstico aprofundado (10/10/2026)
+
+**[Ler o relatório real da nova execução](RESULTADO-DIAGNOSTICO-INSTALADOR.md).** Conseguimos baixar e iniciar o instalador oficial do Adobe Creative Cloud no Windows do GitHub. Após **70 segundos**, o Set-up.exe permanecia em execução, mas **Creative Cloud e Premiere não foram encontrados nos caminhos padrão**. Não encontramos logs Adobe nas pastas inspecionadas; isso **não identifica a causa** do bloqueio. O workflow terminou com sucesso apenas porque a automação de diagnóstico rodou — não porque o Premiere foi instalado.
+
+**Para o Premiere Pro original funcionar:** a Adobe exige Windows 11 e GPU compatível; também são necessários conta/licença Adobe e um ambiente com sessão gráfica. O runner Windows Server padrão do GitHub não atende a isso. Nossa investigação continua centrada no Premiere, sem redistribuir instaladores nem contornar licenciamento.
+
 ## Resultado atualizado: instalador Adobe EXECUTADO
 
 **[Veja o resultado detalhado da execucao do Creative Cloud no GitHub](RESULTADO-EXECUCAO-ADOBE.md).** Em 10/10/2026, o runner Windows do GitHub baixou o ZIP oficial, validou a assinatura do Set-up.exe e **iniciou o instalador**. Apos 90 segundos, ele ainda estava executando e foi encerrado. **Nenhuma instalacao de Creative Cloud ou Premiere Pro foi confirmada.** O link direto do Premiere retornou uma pagina HTML, nao um instalador.
