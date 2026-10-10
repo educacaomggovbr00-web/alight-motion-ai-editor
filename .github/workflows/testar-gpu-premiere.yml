@@ -1,0 +1,48 @@
+name: Testar gráficos para Premiere (experimental)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'premiere-linux/diagnostico-gpu.sh'
+      - 'premiere-linux/windows/d3d11_probe.c'
+      - '.github/workflows/testar-gpu-premiere.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  gpu-e-directx:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Instalar dependências livres no Linux
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            wine wine64 xvfb xauth mesa-utils mesa-vulkan-drivers vulkan-tools \
+            gcc-mingw-w64-x86-64
+
+      - name: Compilar diagnóstico Windows para Direct3D 11
+        run: |
+          x86_64-w64-mingw32-gcc \
+            -O2 -Wall -Wextra \
+            -o premiere-linux/windows/d3d11_probe.exe \
+            premiere-linux/windows/d3d11_probe.c \
+            -ld3d11 -ldxgi -ldxguid -lole32
+          file premiere-linux/windows/d3d11_probe.exe
+
+      - name: Executar diagnóstico gráfico no Wine
+        run: bash premiere-linux/diagnostico-gpu.sh
+
+      - name: Salvar evidências (mesmo que algum teste falhe)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostico-premiere-gpu
+          path: relatorios/premiere-gpu/
+          if-no-files-found: warn
+          retention-days: 7
