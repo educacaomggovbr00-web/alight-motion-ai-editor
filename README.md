@@ -1,5 +1,9 @@
 # Alight Motion AI Editor 🎬
 
+## Novo editor de emo rap — Kdenlive + MLT 🖤
+
+O projeto agora também possui [edição dark com Kdenlive/MLT](kdenlive-mlt/README.md). Pelo Android, abra [Actions → Edit emo rap (Kdenlive MLT)](.github/workflows/editar-dark-mlt.yml), forneça seu MP4 e baixe o artefato meu-edit-emo-rap-mlt após a renderização. Este pipeline usa preto e branco e flashes de impacto, sem abrir interface gráfica. O trabalho com Adobe Premiere permanece preservado abaixo para retomada futura.
+
 ## Prioridade atual: Adobe Premiere Pro original
 
 A integração Windows com GPU está em **[premiere-cloud/](premiere-cloud/)**,
