@@ -74,3 +74,40 @@ observações acima. RAM6GiB serve a esta tentativa Windows, mas não atende o
 mínimo8GiB do Premiere. Para testar Premiere depois, a VM precisa receber RAM
 suficiente, Windows funcional, acesso autorizado à Adobe e login manual.
 WARP no Windows Server já passou no teste separado; no Windows11 segue pendente.
+
+## Resultado ao encerrar
+
+Última captura antes do encerramento mostrou **18% concluído**. O supervisor
+encerrou a VM ao atingir600s; motivo `limite_600s`, não falta de espaço nem
+mensagem de incompatibilidade observada. Não houve primeiro reboot confirmado
+nem desktop Windows. Encerrar o processo durante a cópia não equivale a pausar
+e salvar a memória da VM; o disco contém instalação parcial e pode não iniciar.
+
+Relatório privado `attempt.json`:
+
+```json
+{
+  "state": "experimental",
+  "reason": "limite_600s",
+  "durationSeconds": 600,
+  "freePhysicalBytes": 18868948992,
+  "diskVirtualBytes": 107374182400,
+  "diskAllocatedBytes": 3393892352,
+  "qemuExit": 0,
+  "windowsInstalledProven": false,
+  "warpInWindows11Proven": false,
+  "premiereInstalledProven": false
+}
+```
+
+Ocupação física do disco:3,16GiB; espaço físico restante:17,57GiB. A reserva4GiB
+não foi atingida. Captura privada final `screen-final.ppm`, SHA256:
+`2014adbe1f0b352af984a40fdf8bff13dfbd46c5163c2b84d45cea58d58756f2`.
+Disco parcial, TPM e firmware privado preservados; nenhum recurso pago criado.
+
+CI após a opção de retomada passou:
+https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38092127133
+
+Próxima tentativa precisa de orçamento de tempo maior, mantendo monitor físico;
+nesta execução o espaço não impediu começar. A compatibilidade do Premiere com
+WARP continua pendente até existir desktop Windows funcional.
