@@ -81,3 +81,33 @@ Fontes:
 - [DXVK: requisitos de Vulkan e drivers](https://github.com/doitsujin/dxvk/wiki/Driver-support)
 
 Nenhum programa Adobe é instalado ou incluído, e nenhum teste exige licença Adobe.
+
+
+## Etapa 3 — Teste em Windows do GitHub
+
+Criamos um teste no runner **windows-2025**:
+[Executar a verificacao Windows](../.github/workflows/testar-premiere-windows.yml).
+
+Na aba **Actions**, escolha **Testar Premiere no Windows (requisitos)**.
+Quando finalizar, baixe o artefato **diagnostico-premiere-windows** com
+o relatorio resultado.md.
+
+Ele identifica:
+- versao e edicao real do Windows no runner;
+- RAM e controladores de video expostos;
+- se existe uma instalacao local legitima do Premiere Pro no caminho padrao.
+
+**Nao baixa ou instala Premiere, nao solicita credenciais Adobe,
+nao o executa e nao exporta videos.** Mesmo com um Windows de build recente,
+um runner Windows **Server** nao equivale ao Windows 11 requerido pelo Premiere.
+A GPU pode ser virtual ou basica, nao uma GPU fisica compativel.
+
+Caso o Premiere nao esteja instalado, o relatorio vai dizer isso claramente.
+Para testar o aplicativo de verdade, precisamos de **Windows 11 compativel,
+GPU adequada e instalacao/licenca propria**. O GitHub padrao so pode diagnosticar
+seu ambiente; runners com GPU sao uma modalidade diferente, com requisitos de plano
+e custo adicionais.
+
+Fontes oficiais:
+- [Adobe Premiere — requisitos 26.x](https://helpx.adobe.com/br/premiere/desktop/get-started/technical-requirements/adobe-premiere-pro-technical-requirements.html)
+- [GitHub — runners hospedados, incluindo larger GPU](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners)
