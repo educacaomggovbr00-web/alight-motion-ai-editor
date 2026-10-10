@@ -16,6 +16,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Instalar FFmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
       - name: Criar vídeo sintético de teste
         run: |
           ffmpeg -hide_banner -loglevel error -y -f lavfi -i 'testsrc2=size=240x426:rate=15' -f lavfi -i 'sine=frequency=440:sample_rate=22050' -t 2 -c:v libx264 -pix_fmt yuv420p -c:a aac /tmp/teste.mp4
