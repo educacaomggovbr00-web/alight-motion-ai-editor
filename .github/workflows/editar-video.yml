@@ -1,0 +1,52 @@
+name: Editar vídeo (MP4)
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'Link HTTPS direto para o MP4 (vazio usa input/video.mp4)'
+        required: false
+        type: string
+      intensidade:
+        description: 'Intensidade dos efeitos'
+        required: true
+        default: medio
+        type: choice
+        options:
+          - leve
+          - medio
+          - forte
+  push:
+    paths:
+      - 'input/**'
+
+permissions:
+  contents: read
+
+jobs:
+  editar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
+      - name: Conferir FFmpeg
+        run: ffmpeg -version | head -n 1
+      - name: Editar vídeo
+        env:
+          VIDEO_URL: ${{ inputs.video_url }}
+          INTENSIDADE: ${{ inputs.intensidade || 'medio' }}
+        run: |
+          mkdir -p output
+          if [ -n "$VIDEO_URL" ]; then
+            python3 editor.py --url "$VIDEO_URL" --intensidade "$INTENSIDADE" --output output/editado.mp4
+          else
+            python3 editor.py input/video.mp4 --intensidade "$INTENSIDADE" --output output/editado.mp4
+          fi
+      - name: Disponibilizar vídeo editado
+        uses: actions/upload-artifact@v4
+        with:
+          name: meu-video-editado
+          path: output/editado.mp4
+          if-no-files-found: error
+          retention-days: 7
