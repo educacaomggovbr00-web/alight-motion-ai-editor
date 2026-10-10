@@ -115,3 +115,19 @@ e custo adicionais.
 Fontes oficiais:
 - [Adobe Premiere — requisitos 26.x](https://helpx.adobe.com/br/premiere/desktop/get-started/technical-requirements/adobe-premiere-pro-technical-requirements.html)
 - [GitHub — runners hospedados, incluindo larger GPU](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners)
+
+
+## Etapa 4 — Tentativa REAL de baixar Premiere oficialmente
+
+Criamos [um workflow que tenta baixar o Premiere pela URL oficial da Adobe](../.github/workflows/tentar-baixar-premiere.yml).
+Ele usa o servidor Windows do GitHub (temporário) e tenta dois caminhos:
+
+1. A **URL oficial do Premiere** (https://creativecloud.adobe.com/apps/download/premiere). Verifica se resulta em instalador executável ou apenas página de login/download.
+2. O **ZIP oficial do aplicativo Creative Cloud**, que é o gerenciador usado pela Adobe para baixar e instalar o Premiere. Verifica o arquivo e, se houver executável, a assinatura Authenticode.
+
+**O Creative Cloud não é o Premiere.** Baixar o Creative Cloud não prova que seja possível obter, instalar ou executar o Premiere automaticamente. Para utilizar o aplicativo, a Adobe exige conta e licença/teste válido, e os servidores padrão GitHub não atendem a todos os requisitos gráficos e de sistema.
+
+Para conferir, abra **Actions → Tentar baixar Premiere (Adobe oficial)** e baixe o artefato **resultado-tentativa-premiere** depois do teste. **Nenhum instalador proprietário é armazenado no repositório nem anexado aos resultados**, e o servidor temporário apaga os downloads ao terminar. O fluxo nunca tenta ativar, instalar ou executar o Premiere.
+
+Referência do download direto do Creative Cloud (Adobe):
+https://helpx.adobe.com/pt/download-install/apps/download-install-apps/creative-cloud-apps/download-creative-cloud-desktop-app-using-direct-links.html
