@@ -1,0 +1,8 @@
+runtime/
+*.mp4
+*.wav
+*.mp3
+*.prproj
+*.exe
+*.zip
+__pycache__/

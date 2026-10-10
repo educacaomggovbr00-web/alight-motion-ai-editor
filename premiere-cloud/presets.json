@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "engine": "adobe-premiere-pro",
+  "presets": [
+    {"name": "Anime Shake", "state": "nao_iniciado", "effects": ["position shake", "rotation", "impact zoom"]},
+    {"name": "Velocity Edit", "state": "nao_iniciado", "effects": ["time remapping", "speed ramp", "motion blur"]},
+    {"name": "AMV Cinematic", "state": "nao_iniciado", "effects": ["smooth zoom", "color", "overlays"]},
+    {"name": "Glitch Edit", "state": "nao_iniciado", "effects": ["glitch", "RGB split", "chromatic aberration"]},
+    {"name": "Hard Beat Sync", "state": "nao_iniciado", "effects": ["beat cuts", "flash", "shake"]},
+    {"name": "Smooth Zoom", "state": "nao_iniciado", "effects": ["scale keyframes", "Bezier easing"]},
+    {"name": "Extreme Impact", "state": "nao_iniciado", "effects": ["shake", "flash", "light", "rotation", "motion blur"]}
+  ]
+}

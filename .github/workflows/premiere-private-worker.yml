@@ -1,0 +1,74 @@
+name: Premiere - preparar tarefa na maquina privada
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: ID sem caminhos ou links (exemplo edit-001)
+        required: true
+        type: string
+      style:
+        description: Especificacao de estilo (efeitos ainda nao implementados)
+        type: choice
+        default: Anime Shake
+        options: [Anime Shake, Velocity Edit, AMV Cinematic, Glitch Edit, Hard Beat Sync, Smooth Zoom, Extreme Impact]
+      intensity:
+        description: Intensidade
+        type: choice
+        options: [leve, medio, forte]
+        default: medio
+      fps:
+        description: FPS
+        type: choice
+        options: ['30', '60']
+        default: '30'
+      orientation:
+        description: Orientacao
+        type: choice
+        options: [vertical, horizontal]
+        default: vertical
+permissions:
+  contents: read
+concurrency:
+  group: premiere-private-machine
+  cancel-in-progress: false
+jobs:
+  disabled:
+    if: github.event.repository.private != true || vars.PREMIERE_WORKER_ENABLED != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - run: |
+          echo 'BLOQUEADO: use repositorio privado e habilite PREMIERE_WORKER_ENABLED somente depois de configurar a maquina.' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+  prepare:
+    if: github.event.repository.private == true && vars.PREMIERE_WORKER_ENABLED == 'true'
+    runs-on: [self-hosted, Windows, X64, premiere-gpu]
+    timeout-minutes: 8
+    env:
+      JOB_ID: ${{ inputs.job_id }}
+      STYLE: ${{ inputs.style }}
+      INTENSITY: ${{ inputs.intensity }}
+      FPS: ${{ inputs.fps }}
+      ORIENTATION: ${{ inputs.orientation }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Diagnosticar Windows e GPU
+        shell: pwsh
+        run: ./premiere-cloud/windows/preflight.ps1
+      - name: Preparar pastas privadas (sem iniciar exportacao)
+        shell: pwsh
+        run: |
+          if (-not $env:PREMIERE_JOBS_ROOT) { throw 'Configure PREMIERE_JOBS_ROOT na maquina, fora do checkout' }
+          python premiere-cloud/pipeline.py prepare --root "$env:PREMIERE_JOBS_ROOT" --id "$env:JOB_ID" --style "$env:STYLE" --intensity "$env:INTENSITY" --fps "$env:FPS" --orientation "$env:ORIENTATION"
+          if ($LASTEXITCODE -ne 0) { throw 'Preparacao falhou' }
+          'Tarefa preparada. Aguardando midia privada e operacao do Premiere; nenhum video foi exportado.' >> $env:GITHUB_STEP_SUMMARY
+      - name: Diagnostico sanitizado (somente no repositorio privado)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premiere-environment
+          path: premiere-cloud/runtime/environment.json
+          retention-days: 3
+          if-no-files-found: warn
