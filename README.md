@@ -42,3 +42,20 @@ Outras opções: --url https://servidor/video.mp4, --max-segundos 45, --largura 
 A sincronização musical ainda é **aproximada**. O editor não seleciona cenas automaticamente, não acessa sua galeria, não controla o Alight Motion pelo Android e não altera projetos XML do Alight Motion.
 
 O próximo passo para integração com Alight Motion é validar um **XML exportado pelo próprio app** antes de modificar seus keyframes ou camadas. O GitHub hospeda o código e executa a conversão do vídeo; **não substitui sozinho a conexão com o app**.
+
+
+## Experimento Premiere Pro no Linux (Wine)
+
+Criamos uma pasta separada para estudar a compatibilidade no Linux:
+**[premiere-linux/](premiere-linux/)**.
+
+Na aba [Actions](../../actions), abra **Testar Wine para Premiere (experimental)**
+e execute **Run workflow**. O sistema instala Wine e Xvfb num Ubuntu temporário,
+tenta abrir um ambiente Windows simulado e gera um relatório de diagnóstico.
+
+**Isso não instala nem executa o Adobe Premiere Pro.** O editor atual da
+Adobe não oferece suporte oficial ao Linux; conseguir abrir o Wine não
+garante compatibilidade com Premiere, GPU ou Creative Cloud. Não publique
+instaladores ou credenciais Adobe neste repositório público.
+
+O editor MP4 com FFmpeg continua disponível independentemente desse teste.
