@@ -44,3 +44,34 @@ Esta pasta não fornece bypass de ativação nem download de instaladores Adobe.
   **desconhecidos**.
 
 O editor MP4 FFmpeg existente no repositório continua independente e funcional.
+
+
+## Etapa 2 — Diagnóstico de gráficos (Direct3D 11 / Vulkan)
+
+**[Rodar o diagnóstico gráfico no GitHub Actions](../.github/workflows/testar-gpu-premiere.yml)**
+
+1. Abra a aba **Actions**.
+2. Escolha **Testar gráficos para Premiere (experimental)**.
+3. Toque em **Run workflow**.
+4. Abra o resultado e baixe o artefato **diagnostico-premiere-gpu**.
+5. Leia o relatório resultado.md e os logs directx11.txt e vulkan.txt.
+
+A automação instala ferramentas de código aberto, compila um executável
+Windows simples a partir de **windows/d3d11_probe.c** e o executa no Wine.
+Ela mede se o ambiente consegue listar adaptadores gráficos DXGI e criar
+um dispositivo Direct3D 11. Também inspeciona OpenGL e Vulkan no runner.
+
+O diagnóstico deve ser interpretado com cuidado:
+- Se aparecer **llvmpipe/lavapipe**, a renderização é por **CPU**, não por GPU física.
+- Os valores de memória gráfica apresentados por adaptadores virtualizados
+  podem ser simulados e não comprovam VRAM real.
+- O Premiere atual exige **Windows 11 v24H2** e GPU compatível com **4 GB de memória gráfica**
+  para edição no Windows, entre outros requisitos.
+- Mesmo que Direct3D 11 funcione, isso **não significa** compatibilidade com Premiere,
+  DirectX 12, Creative Cloud ou exportação de vídeo.
+
+Fontes:
+- [Adobe: requisitos do Premiere 26.x (2026)](https://helpx.adobe.com/br/premiere/desktop/get-started/technical-requirements/adobe-premiere-pro-technical-requirements.html)
+- [DXVK: requisitos de Vulkan e drivers](https://github.com/doitsujin/dxvk/wiki/Driver-support)
+
+Nenhum programa Adobe é instalado ou incluído, e nenhum teste exige licença Adobe.
