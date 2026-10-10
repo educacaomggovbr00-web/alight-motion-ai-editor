@@ -46,3 +46,12 @@ jobs:
             if ($errors.Count) { $errors | ForEach-Object { Write-Host $_.Message }; $failed = $true }
           }
           if ($failed) { throw 'Sintaxe PowerShell invalida' }
+      - name: Criar dispositivo WARP real (Windows Server, nao Windows 11)
+        shell: pwsh
+        run: ./premiere-cloud/windows/test-warp.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: warp-device-diagnostic
+          path: premiere-cloud/runtime/warp.json
+          retention-days: 7
+          if-no-files-found: error
