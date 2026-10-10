@@ -1,5 +1,13 @@
 # Alight Motion AI Editor 🎬
 
+## Prioridade atual: Adobe Premiere Pro original
+
+A integração Windows com GPU está em **[premiere-cloud/](premiere-cloud/)**,
+com [relatório técnico e custos](premiere-cloud/reports/2026-10-10.md), scripts,
+testes e guia para Android. **Premiere ainda não instalado nem executado**:
+é necessária uma máquina Windows 11 compatível, sessão gráfica e licença Adobe.
+O novo workflow privado prepara tarefas; ainda não edita/exporta. Os recursos antigos abaixo são preservados.
+
 Editor inicial de vídeos **MP4 pelo GitHub Actions**. Aplica zooms, shakes e flashes em impactos estimados da música, gera um novo vídeo e preserva a trilha sonora original.
 
 > **Importante:** esta versão usa **FFmpeg**, não edita dentro do aplicativo Alight Motion. O resultado é um MP4, não um projeto XML editável.
@@ -59,3 +67,4 @@ garante compatibilidade com Premiere, GPU ou Creative Cloud. Não publique
 instaladores ou credenciais Adobe neste repositório público.
 
 O editor MP4 com FFmpeg continua disponível independentemente desse teste.
+
