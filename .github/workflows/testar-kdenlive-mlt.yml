@@ -1,0 +1,81 @@
+name: Testar Kdenlive + MLT
+
+on:
+  push:
+    paths:
+      - 'kdenlive-mlt/editar_dark.py'
+      - '.github/workflows/testar-kdenlive-mlt.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-kdenlive-mlt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Baixar projeto
+        uses: actions/checkout@v4
+
+      - name: Instalar Kdenlive, MLT, frei0r e FFmpeg no Ubuntu
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            kdenlive melt ffmpeg frei0r-plugins
+          dpkg-query -W kdenlive melt ffmpeg frei0r-plugins
+          command -v melt
+
+      - name: Gerar clipe sintetico com trilha de audio
+        run: |
+          ffmpeg -hide_banner -loglevel error -y \
+            -f lavfi -i 'testsrc2=size=240x426:rate=24' \
+            -f lavfi -i 'sine=frequency=440:sample_rate=24000' \
+            -t 2 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac \
+            /tmp/entrada-mlt.mp4
+
+      - name: Gerar projeto e renderizar com MLT (sem interface grafica)
+        run: |
+          python3 kdenlive-mlt/editar_dark.py /tmp/entrada-mlt.mp4 \
+            --largura 240 --altura 426 --fps 24 --max-segundos 2 \
+            --intensidade forte --output-dir /tmp/dark-test
+
+      - name: Verificar video audio timeline e metadados
+        run: |
+          python3 - <<'PY'
+          import json, subprocess, xml.etree.ElementTree as ET
+          from pathlib import Path
+          root=Path("/tmp/dark-test")
+          video=root/"editado.mp4"
+          assert video.stat().st_size>1000
+          info=json.loads(subprocess.check_output([
+            "ffprobe","-v","error","-show_format","-show_streams","-of","json",str(video)
+          ]))
+          tracks={x["codec_type"]:x for x in info["streams"]}
+          v=tracks["video"]
+          assert v["codec_name"]=="h264", v
+          assert (v["width"],v["height"])==(240,426),v
+          assert v["avg_frame_rate"]=="24/1",v
+          assert tracks["audio"]["codec_name"]=="aac", tracks
+          length=float(info["format"]["duration"])
+          assert 1.9<=length<=2.12,length
+          doc=ET.parse(root/"projeto.mlt")
+          services=[x.text for x in doc.findall(".//property[@name='mlt_service']")]
+          assert "greyscale" in services, services
+          assert "brightness" in services, services
+          manifest=json.loads((root/"manifesto.json").read_text())
+          assert manifest["intervalos_flash"]>=1,manifest
+          print("Video real renderizado por MLT: H.264, 240x426, 24fps, AAC, ~2s, flashes na timeline")
+          PY
+
+      - name: Disponibilizar video de teste e projeto MLT
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: primeiro-edit-mlt-teste
+          path: |
+            /tmp/dark-test/editado.mp4
+            /tmp/dark-test/projeto.mlt
+            /tmp/dark-test/manifesto.json
+          if-no-files-found: error
+          retention-days: 7
