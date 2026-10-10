@@ -1,6 +1,8 @@
 # Premiere Pro original na nuvem
 
-Estado: **integração preparada, Premiere bloqueado por ausência de Windows/GPU/licença/sessão**.
+Estado: **Windows 11 + dispositivo WARP CPU testados no runner temporário; desktop/Premiere não comprovados.**
+Ambiente permanente, GPU compatível e acesso Adobe autorizado continuam ausentes.
+[Persistência, backup/restauração e limites com orçamento R$0 no Brasil](reports/persistencia-brasil-orcamento-zero.md).
 O GitHub orquestra; a máquina Windows persistente executará o aplicativo Adobe original.
 Nenhum preset ou exportação pelo Premiere está comprovado.
 Leia o [relatório técnico](reports/2026-10-10.md) antes de gastar ou repetir experimentos.
