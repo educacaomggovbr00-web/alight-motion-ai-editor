@@ -1,0 +1,28 @@
+name: Testar editor
+
+on:
+  push:
+    paths:
+      - 'editor.py'
+      - '.github/workflows/testar-editor.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  teste:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Criar vídeo sintético de teste
+        run: |
+          ffmpeg -hide_banner -loglevel error -y -f lavfi -i 'testsrc2=size=240x426:rate=15' -f lavfi -i 'sine=frequency=440:sample_rate=22050' -t 2 -c:v libx264 -pix_fmt yuv420p -c:a aac /tmp/teste.mp4
+      - name: Editar vídeo de teste
+        run: python3 editor.py /tmp/teste.mp4 --largura 240 --altura 426 --max-segundos 2 --output /tmp/editado.mp4
+      - name: Verificar saída
+        run: |
+          test -s /tmp/editado.mp4
+          ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of csv=p=0 /tmp/editado.mp4 | grep -q h264
+          ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 /tmp/editado.mp4 | grep -q aac
