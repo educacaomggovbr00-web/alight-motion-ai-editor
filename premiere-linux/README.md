@@ -1,5 +1,9 @@
 # Experimento: Premiere Pro no Linux com Wine
 
+## Resultado REAL do download Adobe (10/10/2026)
+
+**[Ler o relatório da tentativa de download](RESULTADO-DOWNLOAD-ADOBE.md).** O link direto do Premiere retornou **HTTP 403** e não entregou o aplicativo. Conseguimos baixar **331.128.777 bytes** do instalador oficial do Creative Cloud pelo CDN da Adobe; o executável tinha **assinatura Adobe válida**. O Creative Cloud **não é o Premiere**: o Premiere ainda não foi baixado, instalado ou executado. Nenhum instalador foi adicionado ao repositório.
+
 ## Resultado real da etapa 3 (Windows)
 
 **[Ver relatório do teste Windows](RESULTADO-TESTE-WINDOWS.md).** No GitHub Actions, o runner padrão foi **Windows Server 2025**, com vídeo virtual **Microsoft Hyper-V Video**. O **Adobe Premiere Pro não estava instalado**. Não há GPU dedicada compatível comprovada. Portanto, **Premiere não foi executado**; o teste mostra as limitações reais do servidor.
