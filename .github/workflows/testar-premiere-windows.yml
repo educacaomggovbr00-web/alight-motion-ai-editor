@@ -1,0 +1,32 @@
+name: Testar Premiere no Windows (requisitos)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'premiere-linux/windows/testar-premiere.ps1'
+      - '.github/workflows/testar-premiere-windows.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verificar-windows:
+    runs-on: windows-2025
+    timeout-minutes: 12
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Conferir sistema, GPU e instalacao do Premiere
+        shell: pwsh
+        run: ./premiere-linux/windows/testar-premiere.ps1
+
+      - name: Salvar diagnostico
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostico-premiere-windows
+          path: relatorios/premiere-windows/resultado.md
+          if-no-files-found: warn
+          retention-days: 7
