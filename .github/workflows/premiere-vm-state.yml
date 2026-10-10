@@ -1,0 +1,46 @@
+name: Premiere - backup privado de VM desligada
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Configure origem e destino novos no host antes de executar
+        type: choice
+        options: [verify, backup, restore]
+        default: verify
+permissions:
+  contents: read
+concurrency:
+  group: premiere-vm-state
+  cancel-in-progress: false
+jobs:
+  blocked:
+    if: github.event.repository.private != true || vars.PREMIERE_STORAGE_ENABLED != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - run: |
+          echo 'BLOQUEADO: requer repositorio privado, host Linux dedicado e storage privado configurado.' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+  state:
+    if: github.event.repository.private == true && vars.PREMIERE_STORAGE_ENABLED == 'true'
+    runs-on: [self-hosted, Linux, X64, premiere-storage]
+    timeout-minutes: 120
+    env:
+      OPERATION: ${{ inputs.operation }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Backup ou restauracao em storage ja montado
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${VM_STATE_SOURCE:?Configure origem privada fora do checkout no host}"
+          if [ "$OPERATION" = verify ]; then
+            python3 premiere-cloud/windows/vm_state.py verify --source "$VM_STATE_SOURCE"
+          else
+            : "${VM_STATE_DESTINATION:?Configure destino privado novo fora do checkout no host}"
+            python3 premiere-cloud/windows/vm_state.py "$OPERATION" \
+              --source "$VM_STATE_SOURCE" --destination "$VM_STATE_DESTINATION" --offline
+          fi
+          echo 'Operacao de storage concluida. Nao comprova boot, desktop ou Premiere. Nenhum disco foi publicado como artefato.' >> "$GITHUB_STEP_SUMMARY"
