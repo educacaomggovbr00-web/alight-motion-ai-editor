@@ -45,3 +45,22 @@ SHA256 publicado para pt-BR:
 `29BD7592E832D32073D1637CE83689DE5F375700A963B2D753E437CC64D76C09`.
 O resultado da transferência e da comparação deve ser registrado separadamente;
 não se deve tratar o tamanho anunciado como download concluído.
+
+## Resultado real
+
+Download **concluído**, 8.170.147.840 bytes, fora do repositório público.
+SHA256 calculado igual ao publicado acima. Arquivo privado nesta sessão:
+`/workspace/adobe-private-downloads/windows11-enterprise-eval-ptbr.iso`.
+Transferência HTTPS do domínio oficial Microsoft, em oito intervalos, seguida de
+montagem e verificação SHA256 integral. Nenhum Windows foi instalado/iniciado;
+nenhum Premiere foi instalado/iniciado. Esse armazenamento da sessão não é uma
+VM persistente nem um serviço de download para o celular.
+
+Testes locais: sete testes Python e nove contratos UXP passaram (sem Adobe).
+YAML carregado e restrição de runner verificada. GitHub validou sintaxe dos
+scripts PowerShell e repetiu testes auxiliares com sucesso:
+https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38090859947
+
+O workflow de instalação não foi executado em Windows 11: não há runner
+compatível conectado e o repositório atual é público. O bloqueio está explícito;
+não há evidência de login, conta Adobe criada ou instalação concluída.
