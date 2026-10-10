@@ -1,0 +1,52 @@
+name: Premiere - iniciar instalacao no Windows 11 privado
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: premiere-private-machine
+  cancel-in-progress: false
+jobs:
+  blocked:
+    if: github.event.repository.private != true || vars.PREMIERE_WORKER_ENABLED != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - run: |
+          echo 'BLOQUEADO: falta maquina Windows 11 com GPU, sessao grafica e runner privado habilitado. Nenhum Adobe instalado.' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+  install:
+    if: github.event.repository.private == true && vars.PREMIERE_WORKER_ENABLED == 'true'
+    runs-on: [self-hosted, Windows, X64, premiere-gpu]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verificar requisitos antes de baixar
+        shell: pwsh
+        run: |
+          ./premiere-cloud/windows/preflight.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Instalacao bloqueada pelo diagnostico' }
+      - name: Baixar Adobe e iniciar instalador assinado na sessao remota
+        shell: pwsh
+        run: |
+          if (-not $env:PREMIERE_INSTALL_ROOT) { throw 'Configure PREMIERE_INSTALL_ROOT privado fora do checkout' }
+          $destination = Join-Path $env:PREMIERE_INSTALL_ROOT ('creative-cloud-' + $env:GITHUB_RUN_ID + '-' + $env:GITHUB_RUN_ATTEMPT)
+          ./premiere-cloud/windows/download-creative-cloud.ps1 -Destination $destination
+          $setup = @(Get-ChildItem (Join-Path $destination 'extracted') -Filter 'Set-up.exe' -File -Recurse)
+          if ($setup.Count -ne 1) { throw 'Instalador unico ausente' }
+          # A interface precisa sobreviver ao fim do job para login manual.
+          Remove-Item Env:RUNNER_TRACKING_ID -ErrorAction SilentlyContinue
+          ./premiere-cloud/windows/start-signed.ps1 -Executable $setup[0].FullName -Kind CreativeCloudInstaller
+          'Instalador iniciado somente se passou nas verificacoes. Na sessao remota: criar conta ou entrar na Adobe, instalar Premiere com licenca autorizada. Nenhuma instalacao ou exportacao confirmada por este workflow.' >> $env:GITHUB_STEP_SUMMARY
+      - name: Relatorios sanitizados (nao publica instaladores)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premiere-install-diagnostics
+          path: |
+            premiere-cloud/runtime/environment.json
+            premiere-cloud/runtime/start.json
+          retention-days: 3
+          if-no-files-found: warn
