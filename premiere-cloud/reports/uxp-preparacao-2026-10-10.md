@@ -53,3 +53,16 @@ Uso na sessão remota Android, download do código, instalação UDT e sete etap
 [guia do painel](../automation/uxp-panel/README.md). Para sair do bloqueio, é preciso disponibilizar
 máquina Windows11/GPU compatível licenciada e fazer login Adobe na interface. Sem isso não é possível
 provar os testes Adobe solicitados, mesmo com código/API preparados. Nenhum custo contratado.
+
+## Resultado real do GitHub Actions
+
+- [Commit 8db8fd4](https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/commit/8db8fd4f362801d32bc2082298650f0ce484d220).
+- [Execução #38088643493](https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38088643493):
+  `completed`, `success` verificados via API GitHub. Passaram auxiliares Python/FFmpeg/FFprobe,
+  nove testes Node do contrato UXP, sintaxe da interface e parser PowerShell.
+- [Baixar fontes do painel](https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38088643493/artifacts/11683296549):
+  artefato `premiere-uxp-panel-source`, 8.035 bytes, não expirado na verificação, retenção de sete dias.
+  Contém somente manifest/interface/adapter/guia próprios; pode exigir login GitHub para download.
+
+O CI não iniciou Premiere nem carregou o painel no host Adobe. Registro final apenas documental,
+com `[skip ci]` para não repetir os testes já aprovados.
