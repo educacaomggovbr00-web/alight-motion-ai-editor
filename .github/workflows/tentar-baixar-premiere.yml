@@ -1,0 +1,30 @@
+name: Tentar baixar Premiere (Adobe oficial)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'premiere-linux/windows/baixar-oficial.ps1'
+      - '.github/workflows/tentar-baixar-premiere.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  tentar-download:
+    runs-on: windows-2025
+    timeout-minutes: 12
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+      - name: Baixar somente de URLs Adobe e verificar arquivos
+        shell: pwsh
+        run: ./premiere-linux/windows/baixar-oficial.ps1
+      - name: Salvar relatorio (sem arquivos proprietarios Adobe)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultado-tentativa-premiere
+          path: relatorios/adobe-download/resultado.md
+          if-no-files-found: warn
+          retention-days: 7
