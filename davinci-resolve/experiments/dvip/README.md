@@ -13,7 +13,7 @@ O artefato aprovado contém relatórios, não bibliotecas compiladas. Este exper
 1. Obtenha o download Linux 21.1.1 pelo formulário oficial da Blackmagic Design: https://www.blackmagicdesign.com/support/family/davinci-resolve-and-fusion .
 2. Em Settings → Secrets and variables → Actions → New repository secret, configure `DAVINCI_RESOLVE_LINUX_URL` com o endereço temporário oficial do ZIP. Nunca coloque esse endereço em mensagens, arquivos, issues ou logs.
 3. Em Actions, abra o workflow existente `testar-mesa-software-sharing.yml`, toque Run workflow e selecione a branch experimental acima. O nome exibido na branch é “DaVinci — DVIP original 21.1.1 por CPU (experimental)”.
-4. Consulte `davinci-dvip-preflight` e, quando disponível, `davinci-dvip-experimental` em Artifacts. Relatórios e capturas mostram os resultados reais. Apenas um MP4 produzido pelo Resolve e aprovado pelo FFprobe comprova exportação.
+4. Consulte `davinci-dvip-preflight` e, quando disponível, `davinci-original-dvip-evidence` em Artifacts. Relatórios e capturas mostram os resultados reais. Apenas um MP4 produzido pelo Resolve e aprovado pelo FFprobe comprova exportação.
 
 Sem entrada válida, o workflow bloqueia antes de compilar ou baixar. Não há instalação Windows, GPU paga, criação de conta ou automação de login.
 

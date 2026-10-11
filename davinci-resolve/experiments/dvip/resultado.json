@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-11",
+  "branch": "experiment/davinci-21-1-1-software-dvip",
+  "implementationCommit": "cbb9effb290cc1fb5d3ff2416c1d647af8dbeea1",
+  "approvedSharingRun": 38165021201,
+  "experimentRun": 38167954887,
+  "runUrl": "https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38167954887",
+  "runConclusion": "failure",
+  "preflight": {
+    "tests": 12,
+    "result": "success",
+    "durationSeconds": 0.106,
+    "artifactId": 11712623663,
+    "artifactDigest": "sha256:712b51865c25a3373034fd87d464de9dc8aa82efb84cbcc7635e10d068af3fd9"
+  },
+  "state": "bloqueado",
+  "reason": "Segredo DAVINCI_RESOLVE_LINUX_URL não configurado; nenhum download iniciado.",
+  "newMesaBuildStarted": false,
+  "resolveStarted": false,
+  "dvipInitializationConfirmed": false,
+  "unsupportedGpuResolved": null,
+  "projectCreated": false,
+  "mediaImported": false,
+  "exportProven": false,
+  "mainPreservedAt": "48aaecb8168783c13130833cf23c327349c26471",
+  "deletedFiles": 0,
+  "nextAction": "Configurar uma URL oficial nova do ZIP Linux 21.1.1 exclusivamente no segredo DAVINCI_RESOLVE_LINUX_URL e executar o workflow testar-mesa-software-sharing.yml selecionando a branch experimental."
+}
