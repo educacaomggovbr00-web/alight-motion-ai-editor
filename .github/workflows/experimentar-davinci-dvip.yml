@@ -187,7 +187,7 @@ jobs:
             -v "$RUNNER_TEMP/davinci-private:/private" -v "$PWD/dvip-output:/output" \
             codex-resolve-dvip python3 /experiment/dvip/source.py extract --private-dir /private --report /output/extraction.json
       - name: Gate GL/CL e execucao limitada e script interno do Resolve original em GLX
-        timeout-minutes: 12
+        timeout-minutes: 18
         shell: bash
         run: |
           set -euo pipefail
@@ -202,7 +202,7 @@ jobs:
           for profile in glx; do
             mkdir -p "dvip-output/$profile"
             set +e
-            timeout --kill-after=5s 600s docker run --rm --name "$probe_name" --memory=6g --cpus=2 --ulimit core=0 \
+            timeout --kill-after=5s 960s docker run --rm --name "$probe_name" --memory=6g --cpus=2 --ulimit core=0 --cap-add SYS_PTRACE --security-opt seccomp=unconfined \
               --device /dev/udmabuf "${extra[@]}" \
               -v "$RUNNER_TEMP/davinci-private/squashfs-root:/opt/resolve" \
               -v "$RUNNER_TEMP/davinci-private/squashfs-root/bin:/opt/resolve/bin:ro" \

@@ -178,12 +178,22 @@ def main():
                 result['onboardingActions']=advance_onboarding(a.output,desktop_env)
                 if result['onboardingActions']:time.sleep(40)
                 # Wait for the real main window before touching the documented Scripts menu.
-                for _ in range(18):
+                startup_samples=[]
+                for _ in range(60):
                     _,ready=bounded(['xdotool','search','--onlyvisible','--name','DaVinci Resolve -','getwindowname','%@'],desktop_env,5)
+                    try:
+                        stat=(Path('/proc')/str(app.pid)/'stat').read_text().split(') ',1)[1].split()
+                        status_text=(Path('/proc')/str(app.pid)/'status').read_text()
+                        memory=next((line for line in status_text.splitlines() if line.startswith('VmRSS:')),None)
+                        startup_samples.append({'monotonic':round(time.monotonic(),1),'state':stat[0],'userCpuTicks':stat[11],'systemCpuTicks':stat[12],'rss':memory})
+                    except OSError:pass
                     if 'DaVinci Resolve -' in ready:break
                     if app.poll() is not None:break
                     time.sleep(5)
                 result['uiMainWindowObserved']='DaVinci Resolve -' in ready
+                (a.output/'startup-process-samples.json').write_text(json.dumps(startup_samples,indent=2))
+                if not result['uiMainWindowObserved'] and app.poll() is None:
+                    bounded(['gdb','--batch','-ex','set pagination off','-ex','thread apply all bt 8','-ex','detach','-p',str(app.pid)],desktop_env,20,a.output/'startup-thread-backtrace.log')
                 status,_=bounded(['import','-window','root',str(a.output/'screen-before-sdk.png')],desktop_env,15)
                 result['screenshotCaptured']=status['exitCode']==0
                 _,ocr=bounded(['tesseract',str(a.output/'screen-before-sdk.png'),'stdout','--psm','6'],desktop_env,15,a.output/'screen-text.txt')
