@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/testar-cache-mesa-dvip.yml'
       - '.github/actions/mesa-dvip-cache/**'
+      - '.github/actions/resolve-deps-cache/**'
+      - 'davinci-resolve/experiments/dvip/runtime-deps.Dockerfile'
 permissions:
   contents: read
 concurrency:
@@ -17,6 +19,7 @@ jobs:
     timeout-minutes: 35
     outputs:
       image-id: ${{ steps.mesa.outputs.image-id }}
+      deps-image-id: ${{ steps.deps.outputs.image-id }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,6 +27,9 @@ jobs:
       - name: Compilar ou restaurar e gravar imagem Mesa livre
         id: mesa
         uses: ./.github/actions/mesa-dvip-cache
+      - name: Salvar ou restaurar bibliotecas livres de execução
+        id: deps
+        uses: ./.github/actions/resolve-deps-cache
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -44,13 +50,23 @@ jobs:
         uses: ./.github/actions/mesa-dvip-cache
         with:
           restore-only: 'true'
+      - name: Restaurar dependências livres em outro runner
+        id: deps
+        uses: ./.github/actions/resolve-deps-cache
+        with:
+          restore-only: 'true'
       - name: Exigir cache hit e imagem idêntica à do primeiro runner
         env:
           CACHE_HIT: ${{ steps.mesa.outputs.cache-hit }}
+          DEPS_CACHE_HIT: ${{ steps.deps.outputs.cache-hit }}
+          EXPECTED_DEPS_ID: ${{ needs.prime.outputs.deps-image-id }}
+          ACTUAL_DEPS_ID: ${{ steps.deps.outputs.image-id }}
           EXPECTED_IMAGE_ID: ${{ needs.prime.outputs.image-id }}
           ACTUAL_IMAGE_ID: ${{ steps.mesa.outputs.image-id }}
         shell: bash
         run: |
+          test "$DEPS_CACHE_HIT" = true || { echo 'Falha: dependências não restauradas.'; exit 2; }
+          test "$EXPECTED_DEPS_ID" = "$ACTUAL_DEPS_ID" || { echo 'Falha: identidade das dependências divergente.'; exit 2; }
           test "$CACHE_HIT" = true || { echo 'Falha: cache não foi restaurado no segundo runner.'; exit 2; }
           test "$EXPECTED_IMAGE_ID" = "$ACTUAL_IMAGE_ID" || { echo 'Falha: imagem restaurada divergente.'; exit 2; }
       - name: Criar dispositivo de memória e repetir os quatro compartilhamentos reais
@@ -71,7 +87,7 @@ jobs:
           trap 'docker rm -f "$probe_name" >/dev/null 2>&1 || true' EXIT
           timeout --kill-after=5s 240s docker run --rm --name "$probe_name" --memory=6g --cpus=2 \
             --device /dev/udmabuf -e CODEX_EXPERIMENTAL_SOFTWARE_GL_SHARING=1 \
-            -v "$PWD/dvip-output/gate:/output" codex-mesa-dvip \
+            -v "$PWD/dvip-output/gate:/output" codex-resolve-deps \
             python3 /experiment/run-gl-sharing-matrix.py --output /output --label with-udmabuf
           python3 - <<'PY'
           import json, sys
@@ -82,7 +98,7 @@ jobs:
           reports=[json.loads(p.read_text()) for p in paths]
           if len(reports)!=4 or not all(verified(r) for r in reports):
               raise SystemExit('Falha: imagem restaurada não passou nos quatro buffers GL/CL.')
-          Path('dvip-output/cache-validation.json').write_text(json.dumps({'cacheRestoredOnDifferentRunner':True,'fourRealBuffersPassed':True,'proprietaryDownloadStarted':False},indent=2))
+          Path('dvip-output/cache-validation.json').write_text(json.dumps({'cacheRestoredOnDifferentRunner':True,'runtimeDependenciesRestored':True,'fourRealBuffersPassed':True,'proprietaryDownloadStarted':False},indent=2))
           PY
       - uses: actions/upload-artifact@v4
         if: always()

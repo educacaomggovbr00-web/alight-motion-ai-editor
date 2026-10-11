@@ -1,0 +1,79 @@
+name: DaVinci — cache de dependências livres
+description: Restaura dependências livres; nunca inclui arquivos proprietários.
+inputs:
+  restore-only:
+    description: Falhar imediatamente no cache miss sem repetir compilação
+    required: false
+    default: 'false'
+outputs:
+  cache-hit:
+    description: Cache exato encontrado nesta execução
+    value: ${{ steps.restore.outputs.cache-hit }}
+  image-id:
+    description: Identificador da imagem realmente carregada
+    value: ${{ steps.image.outputs.id }}
+runs:
+  using: composite
+  steps:
+    - name: Restaurar somente imagem dependências de chave exata
+      id: restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ runner.temp }}/resolve-deps-cache
+        key: resolve-deps-image-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('davinci-resolve/experiments/dvip/runtime-deps.Dockerfile', 'davinci-resolve/experiments/dvip/mesa-build.Dockerfile', 'davinci-resolve/experiments/patch-mesa-software-sharing.py', 'davinci-resolve/experiments/gl-sharing-probe.py', 'davinci-resolve/experiments/vulkan-dmabuf-probe.py', 'davinci-resolve/experiments/run-gl-sharing-matrix.py') }}
+    - name: Bloquear recompilação no teste exclusivo de restauração
+      if: inputs.restore-only == 'true' && steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo 'Falha: cache exato indisponível. Recompilação não autorizada neste teste de restauração.'
+        exit 2
+    - name: Conferir integridade e carregar dependências sem recompilar
+      if: steps.restore.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd "$RUNNER_TEMP/resolve-deps-cache"
+        sha256sum --check deps.tar.zst.sha256
+        zstd -dc deps.tar.zst | docker load
+        expected=$(cat image-id.txt)
+        actual=$(docker inspect --format '{{.Id}}' codex-resolve-deps)
+        test "$actual" = "$expected" || { echo 'Cache bloqueado: identidade da imagem divergente.'; exit 2; }
+    - name: Compilar dependências somente se não houver cache exato
+      if: steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p dvip-output
+        docker build --progress=plain -f davinci-resolve/experiments/dvip/runtime-deps.Dockerfile \
+          -t codex-resolve-deps davinci-resolve/experiments 2>&1 | tee dvip-output/deps-build.log
+        mkdir -p "$RUNNER_TEMP/resolve-deps-cache"
+        docker save codex-resolve-deps | zstd -T2 -3 -o "$RUNNER_TEMP/resolve-deps-cache/deps.tar.zst"
+        cd "$RUNNER_TEMP/resolve-deps-cache"
+        sha256sum deps.tar.zst > deps.tar.zst.sha256
+        docker inspect --format '{{.Id}}' codex-resolve-deps > image-id.txt
+    - name: Salvar agora, mesmo que o DaVinci falhe mais tarde
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ runner.temp }}/resolve-deps-cache
+        key: ${{ steps.restore.outputs.cache-primary-key }}
+    - name: Registrar estado real do cache
+      id: image
+      shell: bash
+      env:
+        DEPS_CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+        DEPS_CACHE_KEY: ${{ steps.restore.outputs.cache-primary-key }}
+      run: |
+        set -euo pipefail
+        mkdir -p dvip-output
+        image_id=$(docker inspect --format '{{.Id}}' codex-resolve-deps)
+        echo "id=$image_id" >> "$GITHUB_OUTPUT"
+        export DEPS_IMAGE_ID="$image_id"
+        python3 - <<'PY'
+        import json, os
+        from pathlib import Path
+        data={'cacheHit':os.environ['DEPS_CACHE_HIT']=='true', 'key':os.environ['DEPS_CACHE_KEY'], 'imageId':os.environ['DEPS_IMAGE_ID'], 'containsProprietaryInstaller':False, 'containsResolve':False, 'containsUserMedia':False, 'runtimeRebuildRequired':True}
+        Path('dvip-output/deps-cache.json').write_text(json.dumps(data,indent=2))
+        with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+            out.write('dependências: '+('restaurado do cache exato' if data['cacheHit'] else 'compilado; gravação do cache solicitada')+'. Instalador e sessão do Resolve não são incluídos.\n')
+        PY

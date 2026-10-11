@@ -8,6 +8,7 @@ on:
       - '.github/workflows/testar-mesa-software-sharing.yml'
       - '.github/workflows/experimentar-davinci-dvip.yml'
       - '.github/actions/mesa-dvip-cache/**'
+      - '.github/actions/resolve-deps-cache/**'
       - 'davinci-resolve/experiments/dvip/*.py'
       - 'davinci-resolve/experiments/dvip/*Dockerfile'
 concurrency:
