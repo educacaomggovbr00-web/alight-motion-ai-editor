@@ -6,12 +6,23 @@ on:
       - '.github/workflows/testar-davinci-gl-sharing.yml'
       - 'davinci-resolve/experiments/gl-sharing-probe.py'
       - 'davinci-resolve/experiments/gl-sharing.Dockerfile'
+      - 'davinci-resolve/experiments/vulkan-dmabuf-probe.py'
 permissions:
   contents: read
 jobs:
   interop:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mesa: backports
+            image: debian:13-slim
+            backports: '1'
+          - mesa: latest
+            image: debian:sid-slim
+            backports: '0'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,7 +49,10 @@ jobs:
           print('udmabuf disponível:', p.exists())
           PY
       - name: Preparar Mesa oficial em container isolado
-        run: docker build -f davinci-resolve/experiments/gl-sharing.Dockerfile -t codex-gl-sharing davinci-resolve/experiments
+        env:
+          DEBIAN_IMAGE: ${{ matrix.image }}
+          MESA_BACKPORTS: ${{ matrix.backports }}
+        run: docker build --build-arg DEBIAN_IMAGE="$DEBIAN_IMAGE" --build-arg MESA_BACKPORTS="$MESA_BACKPORTS" -f davinci-resolve/experiments/gl-sharing.Dockerfile -t codex-gl-sharing davinci-resolve/experiments
       - name: Medir GLX e EGL reais com e sem udmabuf
         shell: bash
         run: |
@@ -52,18 +66,35 @@ jobs:
               fi
               device_args+=(--device /dev/udmabuf)
             fi
-            for backend in glx egl; do
-              docker run --rm --memory=4g --cpus=2 "${device_args[@]}" \
-                -v "$PWD/gl-sharing-output:/output" codex-gl-sharing \
-                timeout --kill-after=5s 60s xvfb-run -a -s '-screen 0 1280x720x24 -nolisten tcp' \
-                python3 /experiment/gl-sharing-probe.py --backend "$backend" \
-                --output "/output/$mode-$backend.json"
+            docker run --rm --memory=4g --cpus=2 "${device_args[@]}" \
+              -v "$PWD/gl-sharing-output:/output" codex-gl-sharing \
+              timeout --kill-after=5s 30s python3 /experiment/vulkan-dmabuf-probe.py \
+              --output "/output/$mode-vulkan-dmabuf.json"
+            docker run --rm --memory=4g --cpus=2 "${device_args[@]}" \
+              -e RUSTICL_DEVICE_TYPE=gpu -v "$PWD/gl-sharing-output:/output" codex-gl-sharing \
+              sh -c 'dpkg-query -W mesa-opencl-icd mesa-vulkan-drivers libgl1-mesa-dri > /output/mesa-versions.txt; clinfo > /output/clinfo.txt 2>&1; vulkaninfo --summary > /output/vulkan-summary.txt 2>&1'
+            for device_type in native advertised-gpu; do
+              type_args=()
+              if [[ "$device_type" == advertised-gpu ]]; then
+                type_args+=(-e RUSTICL_DEVICE_TYPE=gpu)
+              fi
+              for backend in glx egl; do
+                docker run --rm --memory=4g --cpus=2 "${device_args[@]}" "${type_args[@]}" \
+                  -v "$PWD/gl-sharing-output:/output" codex-gl-sharing \
+                  timeout --kill-after=5s 60s xvfb-run -a -s '-screen 0 1280x720x24 -nolisten tcp' \
+                  python3 /experiment/gl-sharing-probe.py --backend "$backend" \
+                  --output "/output/$mode-$device_type-$backend.json"
+              done
             done
+            docker run --rm --memory=4g --cpus=2 "${device_args[@]}" \
+              -e RUSTICL_DEVICE_TYPE=gpu -v "$PWD/davinci-resolve:/legacy:ro" codex-gl-sharing \
+              timeout --kill-after=5s 60s xvfb-run -a -s '-screen 0 1280x720x24 -nolisten tcp' \
+              python3 /legacy/probe-gl-opencl.py > "gl-sharing-output/$mode-legacy.json"
           done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: davinci-gl-sharing-evidence
+          name: davinci-gl-sharing-evidence-${{ matrix.mesa }}
           path: gl-sharing-output/
           retention-days: 7
           if-no-files-found: error

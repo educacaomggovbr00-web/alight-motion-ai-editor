@@ -3,6 +3,7 @@
 import argparse
 import ctypes as c
 import json
+import os
 from pathlib import Path
 
 
@@ -115,7 +116,7 @@ def shared_buffer(gl, cl, context, device):
 
 
 def probe(backend):
-    result = {'backend': backend, 'physicalGpuDeviceNodes': [str(p) for p in Path('/dev/dri').glob('renderD*')] + [str(p) for p in Path('/dev').glob('nvidia[0-9]*')], 'udmabufPresent': Path('/dev/udmabuf').exists(), 'devices': [], 'glSharingPassed': False, 'resolveTested': False}
+    result = {'backend': backend, 'physicalGpuDeviceNodes': [str(p) for p in Path('/dev/dri').glob('renderD*')] + [str(p) for p in Path('/dev').glob('nvidia[0-9]*')], 'udmabufPresent': Path('/dev/udmabuf').exists(), 'deviceTypeOverride': os.environ.get('RUSTICL_DEVICE_TYPE'), 'devices': [], 'glSharingPassed': False, 'resolveTested': False}
     gl, ctx, display, display_key, cleanup = graphics(backend)
     try:
         get_string = bind(gl, 'glGetString', [c.c_uint], c.c_char_p)
@@ -149,6 +150,10 @@ def probe(backend):
 
                 extensions = device_string(0x1030).split()
                 item = {'name': device_string(0x102b), 'glSharingAdvertised': 'cl_khr_gl_sharing' in extensions, 'extensions': extensions}
+                device_type, image_support = c.c_ulong(), c.c_uint()
+                info(device, 0x1000, c.sizeof(device_type), c.byref(device_type), None)
+                info(device, 0x1016, c.sizeof(image_support), c.byref(image_support), None)
+                item.update(reportedDeviceType=device_type.value, imageSupport=bool(image_support.value))
                 err, dev = c.c_int(), c.c_void_p(device)
                 basic_props = (c.c_ssize_t * 3)(0x1084, platform, 0)
                 basic = create(basic_props, 1, c.byref(dev), None, None, c.byref(err))
