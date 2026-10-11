@@ -34,3 +34,9 @@ No Linux, o suporte H.264/AAC varia por versão/edição: consultar tabela ofici
 
 [Resultados reais de Mesa 26.1.6/26.2.4 e próximos requisitos](TESTE-DMABUF-GL-SHARING.md). DMA-BUF passou; as 16 combinações OpenGL/OpenCL falharam. DaVinci ainda bloqueado para edição/exportação.
 
+
+
+## Patch experimental do Mesa: resultado
+
+[Compilação, correções do executor e evidências da tentativa](experiments/PATCH-SOFTWARE-SHARING.md). O compartilhamento não passou; a alteração opt-in não corrigiu o DaVinci e não deve ser tratada como instalação funcional.
+
