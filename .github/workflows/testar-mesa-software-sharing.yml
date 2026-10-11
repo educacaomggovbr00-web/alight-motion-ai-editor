@@ -50,6 +50,9 @@ jobs:
               -v "$PWD/patch-output:/output" mesa-software-patch \
               python3 /experiment/run-gl-sharing-matrix.py --output "/output/patch-optin-$optin" --label with-udmabuf
           done
+      - name: Exibir capacidades reais do Rusticl alterado
+        if: always()
+        run: rg "^CODEX_GL_CAPS" patch-output/patch-optin-1/ --glob "*.stderr.log" || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -21,20 +21,39 @@ loader_raw = loader.read_bytes()
 loader_expected = '8949ba583ef997b52019e32d4a4166536a02b909402a3e0e2abfbbe7866f0994'
 if hashlib.sha256(loader_raw).hexdigest() != loader_expected:
     raise SystemExit('Blocked: expected unmodified Mesa 26.2.4 pipe device source.')
-loader_old = 'let s = unsafe { pipe_loader_create_screen(self.ldev.as_ptr(), false) };'
-loader_new = '''let software_vulkan = self.device_type()
-            == pipe_loader_device_type::PIPE_LOADER_DEVICE_SOFTWARE
-            && env::var_os("CODEX_EXPERIMENTAL_SOFTWARE_GL_SHARING")
-                .as_deref() == Some(std::ffi::OsStr::new("1"));
-        let s = unsafe { pipe_loader_create_screen(self.ldev.as_ptr(), software_vulkan) };'''
-loader_text = loader_raw.decode()
-if loader_text.count(loader_old) != 1:
-    raise SystemExit('Blocked: unique software screen loader not found.')
-p.write_text(s.replace(old, new))
-loader.write_text(loader_text.replace(loader_old, loader_new))
+# Leave the loader untouched: forcing software_vulkan removed all devices.
+function_old = """    pub fn is_gl_sharing_supported(&self) -> bool {
+        self.screen.caps().cl_gl_sharing
+            && self.screen.caps().dmabuf != 0
+            && !self.is_device_software()
+            && self.screen.is_res_handle_supported()
+            && self.screen.device_uuid().is_some()
+            && self.caps.has_create_fence_fd
+    }"""
+function_new = """    pub fn is_gl_sharing_supported(&self) -> bool {
+        let experimental = std::env::var_os("CODEX_EXPERIMENTAL_SOFTWARE_GL_SHARING")
+            .as_deref() == Some(std::ffi::OsStr::new("1"));
+        let allowed = self.screen.caps().cl_gl_sharing
+            && self.screen.caps().dmabuf != 0
+            && (!self.is_device_software() || experimental)
+            && self.screen.is_res_handle_supported()
+            && self.screen.device_uuid().is_some()
+            && self.caps.has_create_fence_fd;
+        if experimental {
+            eprintln!("CODEX_GL_CAPS gl_sharing={} dmabuf={} software={} handles={} uuid={} fence_fd={} allowed={}",
+                self.screen.caps().cl_gl_sharing, self.screen.caps().dmabuf,
+                self.is_device_software(), self.screen.is_res_handle_supported(),
+                self.screen.device_uuid().is_some(), self.caps.has_create_fence_fd, allowed);
+        }
+        allowed
+    }"""
+if s.count(function_old) != 1:
+    raise SystemExit('Blocked: expected unique GL sharing predicate.')
+p.write_text(s.replace(function_old, function_new))
+assert loader.read_bytes() == loader_raw
 print(json.dumps({'state': 'experimental', 'sourceSha256': expected,
                   'patchedSha256': hashlib.sha256(p.read_bytes()).hexdigest(),
                   'loaderSourceSha256': loader_expected,
                   'loaderPatchedSha256': hashlib.sha256(loader.read_bytes()).hexdigest(),
-                  'softwareVulkanScreenOptIn': True, 'softwareGuardOptIn': True, 'capabilitiesForged': False,
+                  'softwareVulkanScreenOptIn': False, 'loaderUnmodified': True, 'softwareGuardOptIn': True, 'capabilitiesForged': False,
                   'resolveModified': False}))
