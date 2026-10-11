@@ -42,6 +42,8 @@ jobs:
       - name: Restaurar em outro runner sem recompilar
         id: mesa
         uses: ./.github/actions/mesa-dvip-cache
+        with:
+          restore-only: 'true'
       - name: Exigir cache hit e imagem idêntica à do primeiro runner
         env:
           CACHE_HIT: ${{ steps.mesa.outputs.cache-hit }}

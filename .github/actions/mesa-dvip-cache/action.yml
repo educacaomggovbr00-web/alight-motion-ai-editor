@@ -1,5 +1,10 @@
 name: Mesa DVIP — cache exclusivo de software livre
 description: Restaura ou compila Mesa; salva antes dos testes do aplicativo proprietário.
+inputs:
+  restore-only:
+    description: Falhar imediatamente no cache miss sem repetir compilação
+    required: false
+    default: 'false'
 outputs:
   cache-hit:
     description: Cache exato encontrado nesta execução
@@ -16,6 +21,12 @@ runs:
       with:
         path: ${{ runner.temp }}/mesa-dvip-cache
         key: mesa-dvip-image-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('davinci-resolve/experiments/dvip/mesa-build.Dockerfile', 'davinci-resolve/experiments/patch-mesa-software-sharing.py', 'davinci-resolve/experiments/gl-sharing-probe.py', 'davinci-resolve/experiments/vulkan-dmabuf-probe.py', 'davinci-resolve/experiments/run-gl-sharing-matrix.py') }}
+    - name: Bloquear recompilação no teste exclusivo de restauração
+      if: inputs.restore-only == 'true' && steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo 'Falha: cache exato indisponível. Recompilação não autorizada neste teste de restauração.'
+        exit 2
     - name: Conferir integridade e carregar Mesa sem recompilar
       if: steps.restore.outputs.cache-hit == 'true'
       shell: bash
