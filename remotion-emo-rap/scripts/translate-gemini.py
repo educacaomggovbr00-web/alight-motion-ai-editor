@@ -106,23 +106,30 @@ def transform_response(raw, duration):
         if clarity == "uncertain" or not original or not translated:
             uncertain += 1
             continue
-        parts = split_phrase(translated)
-        total = sum(len(p) for p in parts)
-        cursor = start
+        # Prefira uma palavra animada por vez como na referencia dark.
+        # Os tempos de cada palavra sao ESTIMATIVAS, jamais alinhamento fonetico.
+        tokens = translated.split()
+        span = end - start
+        parts = tokens if tokens and all(len(t) <= 40 for t in tokens) and span / len(tokens) >= 0.16 else split_phrase(translated)
+        if not parts:
+            continue
+        if span / len(parts) < 0.08:
+            # Trechos curtos demais nao ganham legendas piscando ilegíveis.
+            continue
         for i, part in enumerate(parts):
-            nxt = end if i == len(parts)-1 else start + (end-start) * sum(len(p) for p in parts[:i+1]) / total
-            if nxt - cursor < 0.08:
-                raise ValueError("Tempo insuficiente para legenda")
-            words.append({"text": part, "start": round(cursor, 3), "end": round(nxt, 3),
-                          "font": "heavy", "color": "#ffffff", "x": 0.5, "y": 0.66})
-            cursor = nxt
+            a = round(start + span * i / len(parts), 3)
+            b = round(end if i == len(parts)-1 else start + span * (i+1) / len(parts), 3)
+            if b - a < 0.07:
+                continue
+            # Fonte/cor/posicao ficam a cargo de cada preset do Remotion.
+            words.append({"text": part, "start": a, "end": b})
     if len(words) > 300:
         raise ValueError("Legendas demais")
     return {"words": words}, {
         "source_language": clean_text(raw.get("language", "unknown")),
         "segments": review,
         "discarded_uncertain": uncertain,
-        "notice": "Tempos, traducao e palavras sao aproximados. Revisao humana recomendada antes de publicar.",
+        "notice": "Tempos e traducao sao aproximados; divisoes por palavra sao estimativas, nao alinhamento fonetico. Revise antes de publicar.",
     }
 
 def audio_source(directory):
