@@ -1,0 +1,98 @@
+name: Premiere - retomar VM experimental e salvar disco privado
+on:
+  workflow_dispatch:
+    inputs:
+      minutos:
+        description: Tempo de VM (10 a 300); reserva 60 minutos para backup
+        type: choice
+        options: ['10', '30', '60', '180', '300']
+        default: '30'
+permissions:
+  contents: read
+concurrency:
+  group: premiere-private-vm-runtime
+  cancel-in-progress: false
+jobs:
+  blocked:
+    if: github.event.repository.private != true || vars.PREMIERE_STORAGE_ENABLED != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - run: |
+          echo '::error::BLOQUEADO: use copia privada, host Linux dedicado e armazenamento persistente. Este YAML nao cria esses recursos, GPU ou licenca.'
+          echo 'Nenhuma ISO baixada, VM iniciada ou conta criada. Memoria RAM nao sera salva.' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+  resume:
+    if: github.event.repository.private == true && vars.PREMIERE_STORAGE_ENABLED == 'true'
+    runs-on: [self-hosted, Linux, X64, premiere-storage]
+    timeout-minutes: 360
+    env:
+      VM_MINUTES: ${{ inputs.minutos }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validar estado preservado e preparar destino de backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${VM_STATE_SOURCE:?Configure estado QCOW2 privado fora do checkout no host}"
+          : "${VM_BACKUP_ROOT:?Configure volume persistente privado de backup no host}"
+          python3 - <<'PY'
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'premiere-cloud/windows')
+          from vm_state import private_root, inventory, check_disk
+          source=private_root(Path(os.environ['VM_STATE_SOURCE']))
+          backup=private_root(Path(os.environ['VM_BACKUP_ROOT']))
+          if not backup.is_dir() or source == backup or source in backup.parents or backup in source.parents:
+              raise SystemExit('Backup deve estar montado e separado da origem')
+          if (source/'windows.raw').exists():
+              raise SystemExit('Estado RAW nao aceito por este launcher; nao converter/apagar automaticamente')
+          check_disk(source)
+          inventory(source)
+          PY
+      - name: Retomar somente disco existente (sem ISO nem reinstalacao)
+        id: vm
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$VM_MINUTES" in 10|30|60|180|300) ;; *) exit 2;; esac
+          mkdir -p premiere-cloud/runtime/resume
+          set +e
+          timeout --signal=TERM --kill-after=30s "$((VM_MINUTES * 60))s" \
+            bash premiere-cloud/windows/resume-vm.sh "$VM_STATE_SOURCE"
+          vm_exit=$?
+          set -e
+          VM_EXIT="$vm_exit" python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          code=int(os.environ['VM_EXIT'])
+          Path('premiere-cloud/runtime/resume/status.json').write_text(json.dumps({
+            'scope':'existing_vm_experiment','vmExitCode':code,
+            'timeLimitReached':code in (124,137),'cleanWindowsShutdownProven':False,
+            'ramSaved':False,'desktopProven':False,'premiereProven':False,
+            'note':'Prazo pode interromper Windows. Backup de disco nao e snapshot de RAM nem prova de OOBE concluido.'},indent=2))
+          PY
+          if [ "$vm_exit" != 0 ] && [ "$vm_exit" != 124 ]; then exit "$vm_exit"; fi
+      - name: Preservar disco UEFI e TPM apos VM encerrada
+        if: always() && steps.vm.outcome != 'skipped'
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${VM_STATE_SOURCE:?Origem privada ausente}"
+          : "${VM_BACKUP_ROOT:?Volume privado ausente}"
+          target="$VM_BACKUP_ROOT/run-$GITHUB_RUN_ID-attempt-$GITHUB_RUN_ATTEMPT"
+          # vm_state exige locks e verifica integridade; nao copia VM ativa.
+          python3 premiere-cloud/windows/vm_state.py backup --offline \
+            --source "$VM_STATE_SOURCE" --destination "$target"
+          python3 premiere-cloud/windows/vm_state.py verify --source "$target"
+          echo 'Backup offline verificado no volume privado do host. Nao foi publicado no GitHub; RAM nao salva; desligamento limpo Windows nao comprovado.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Relatorio sanitizado somente (sem disco TPM ou screenshots pessoais)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: premiere-resume-status
+          path: premiere-cloud/runtime/resume/status.json
+          retention-days: 3
+          if-no-files-found: warn
