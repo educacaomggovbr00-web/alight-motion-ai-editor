@@ -30,34 +30,39 @@ def choose(rows, key, top_only=False):
     return matches[0] if matches else None
 
 def invoke(output, env, run):
-    result={'attempted':False,'scriptMenuInvoked':False,'actions':[]}
+    result={'attempted':False,'scriptMenuInvoked':False,'actions':[],'ocrRuns':[]}
+    env=dict(env,OMP_THREAD_LIMIT='1',OMP_NUM_THREADS='1')
+    def ocr(path,psm,log):
+        status,text=run(['tesseract',str(path),'stdout','--psm',str(psm),'tsv'],env,30,log)
+        result['ocrRuns'].append(dict(status,image=path.name,psm=psm))
+        return text if status['exitCode']==0 else ''
     def capture(index):
         screen=output/f'internal-menu-{index}.png';large=output/f'internal-menu-ocr-{index}.png'
         status,_=run(['import','-window','root',str(screen)],env,10)
         if status['exitCode']:return []
         status,_=run(['convert',str(screen),'-resize','200%',str(large)],env,10)
         if status['exitCode']:return []
-        _,tsv=run(['tesseract',str(screen),'stdout','--psm','11','tsv'],env,15,output/f'internal-menu-{index}.log')
+        tsv=ocr(screen,11,output/f'internal-menu-{index}.log')
         rows=labels(tsv,scale=1)
         if not rows or (index==0 and choose(rows,'workspace',top_only=True) is None) or (index==1 and choose(rows,'scripts') is None) or index>=2:
-            _,fallback=run(['tesseract',str(large),'stdout','--psm','6','tsv'],env,15,output/f'internal-menu-fallback-{index}.log')
+            fallback=ocr(large,6,output/f'internal-menu-fallback-{index}.log')
             rows+=labels(fallback,scale=2)
         if index==0 and choose(rows,'workspace',top_only=True) is None:
             crop=output/'internal-workspace-crop.png'
             status,_=run(['convert',str(screen),'-crop','85x20+608+0','+repage','-resize','400%','-negate',str(crop)],env,10)
             if status['exitCode']==0:
-                _,header=run(['tesseract',str(crop),'stdout','--psm','7','tsv'],env,15,output/'internal-workspace-crop.log')
+                header=ocr(crop,7,output/'internal-workspace-crop.log')
                 for row in labels(header,scale=4):
                     row['x']+=608
                     rows.append(row)
         if index>=1:
             # Actual captured Workspace menu, then the right-hand script submenu.
             crop=output/f'internal-menu-region-{index}.png'
-            geometry='220x480+610+20' if index==1 else '470x300+800+400'
-            offset=(610,20) if index==1 else (800,400)
+            geometry='220x480+610+20' if index==1 else '470x700+800+20'
+            offset=(610,20) if index==1 else (800,20)
             status,_=run(['convert',str(screen),'-crop',geometry,'+repage','-resize','300%','-negate',str(crop)],env,10)
             if status['exitCode']==0:
-                _,region=run(['tesseract',str(crop),'stdout','--psm','6','tsv'],env,15,output/f'internal-menu-region-{index}.log')
+                region=ocr(crop,6,output/f'internal-menu-region-{index}.log')
                 for row in labels(region,scale=3):
                     row['x']+=offset[0];row['y']+=offset[1];rows.append(row)
         text=' '.join(r['text'] for r in rows).lower()
