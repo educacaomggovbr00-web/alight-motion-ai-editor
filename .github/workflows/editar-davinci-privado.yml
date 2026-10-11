@@ -1,0 +1,43 @@
+name: DaVinci — conferir entrada e editar mídia protegida (experimental)
+on:
+  workflow_dispatch:
+  push:
+    branches: ['experiment/davinci-21-1-1-software-dvip']
+    paths:
+      - '.github/workflows/editar-davinci-privado.yml'
+      - 'davinci-resolve/experiments/dvip/PRIVATE-RUN.json'
+permissions:
+  contents: read
+concurrency:
+  group: davinci-private-media-experimental
+  cancel-in-progress: false
+jobs:
+  input:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      available: ${{ steps.config.outputs.available }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Conferir somente configuração; nunca mostrar valores dos segredos
+        id: config
+        env:
+          DAVINCI_INPUT_VIDEO_URL: ${{ secrets.DAVINCI_INPUT_VIDEO_URL }}
+          DAVINCI_MEDIA_PASSWORD: ${{ secrets.DAVINCI_MEDIA_PASSWORD }}
+        shell: bash
+        run: |
+          if python3 davinci-resolve/experiments/dvip/private_input.py availability --private-dir "$RUNNER_TEMP/davinci-user"; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo 'Bloqueado: configure DAVINCI_INPUT_VIDEO_URL e DAVINCI_MEDIA_PASSWORD nos segredos do repositório. Nenhum vídeo foi baixado por este diagnóstico.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+  edit:
+    needs: input
+    if: needs.input.outputs.available == 'true'
+    uses: ./.github/workflows/experimentar-davinci-dvip.yml
+    with:
+      private_media: true
+    secrets: inherit
