@@ -67,7 +67,7 @@ def main():
         Path('/var/BlackmagicDesign/DaVinci Resolve').mkdir(parents=True,exist_ok=True)
         for folder in ['configs','logs','Fusion']:
             (Path.home()/'.local/share/DaVinciResolve'/folder).mkdir(parents=True,exist_ok=True)
-        env.update(CODEX_EXPERIMENTAL_SOFTWARE_GL_SHARING='1',RUSTICL_DEVICE_TYPE='gpu',QT_QPA_PLATFORM='xcb',QT_XCB_GL_INTEGRATION='xcb_glx' if a.backend=='glx' else 'xcb_egl')
+        env.update(CODEX_EXPERIMENTAL_SOFTWARE_GL_SHARING='1',RUSTICL_DEVICE_TYPE='gpu',QT_DEBUG_PLUGINS='1',QT_QPA_PLATFORM='xcb',QT_XCB_GL_INTEGRATION='xcb_glx' if a.backend=='glx' else 'xcb_egl')
         # System GLib addresses the previously audited bundled GLib conflicts.
         family=['libglib-2.0.so.0','libgobject-2.0.so.0','libgmodule-2.0.so.0','libgio-2.0.so.0']
         env['LD_PRELOAD']=':'.join('/usr/lib/x86_64-linux-gnu/'+f for f in family)
@@ -92,7 +92,8 @@ def main():
         if not result['glSharingPassed']:
             result['reason']='Gate real GL/CL falhou neste ambiente; Resolve não iniciado.';return 2
         _,ldd=bounded(['ldd',str(executable)],env,15,a.output/'dependencies.log')
-        missing=[l for l in ldd.splitlines() if 'not found' in l]
+        _,plugins=bounded(['ldd',str(a.resolve_root/'libs/plugins/platforms/libqxcb.so')],env,15,a.output/'qt-plugin-dependencies.log')
+        missing=[l for l in (ldd+'\n'+plugins).splitlines() if 'not found' in l]
         if missing:result['reason']='Bibliotecas necessárias ausentes.';result['missingLibraries']=missing;return 2
         synthetic=a.output/'synthetic.mov'
         status,_=bounded(['ffmpeg','-y','-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=30','-t','3','-an','-c:v','dnxhd','-profile:v','dnxhr_lb','-pix_fmt','yuv422p',str(synthetic)],env,30,a.output/'synthetic.log')
@@ -105,7 +106,7 @@ def main():
         debug=Path.home()/'.local/share/DaVinciResolve/logs/ResolveDebug.txt'
         offset=debug.stat().st_size if debug.exists() else 0
         with tempfile.TemporaryFile() as log:
-            app=subprocess.Popen(['gdb','--batch','--quiet','-ex','set pagination off','-ex','run','-ex','thread apply all bt','--args',str(executable)],env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            app=subprocess.Popen([str(executable)],env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
             result.update(resolveStarted=True,state='experimental')
             for _ in range(40):
                 if app.poll() is not None:break
@@ -146,7 +147,7 @@ def main():
             (a.output/'resolve-relevant.log').write_text('\n'.join(evidence)+'\n')
             result['dvipErrors']=[l for l in evidence if 'DVIP Exception:' in l or 'failed to create context' in l or 'Failed to initialize OpenCL board manager' in l]
             result['version21ConfirmedInLog']='21.1.1' in recent
-        if 'CrashReport' in recent if debug.exists() else False: result['nativeCrashReportObserved']=True
+        if debug.exists() and 'CrashReport' in recent: result['nativeCrashReportObserved']=True
         result['reason']='Render real validado.' if result['exportProven'] else 'Execução observada; consulte logs/SDK. Ausência de erro não comprova DVIP ou editor funcional.'
         if result.get('dvipErrors') or result.get('unsupportedGpuModeObserved') or result.get('nativeCrashReportObserved'):result['state']='bloqueado'
         if 'Failed to create application support directories' in (a.output/'application.log').read_text():

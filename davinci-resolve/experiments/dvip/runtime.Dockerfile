@@ -2,7 +2,7 @@
 FROM codex-mesa-dvip
 RUN apt-get update && apt-get install -y --no-install-recommends \
  gdb ffmpeg imagemagick tesseract-ocr xdotool x11-utils libglib2.0-0t64 \
- libxcb-cursor0 libxcb-xinerama0 libxkbcommon-x11-0 libglu1-mesa \
+ libxcb-icccm4 libxcb-xinput0 libxcb-cursor0 libxcb-xinerama0 libxkbcommon-x11-0 libglu1-mesa \
  libapr1t64 libaprutil1t64 libasound2t64 libnss3 libxss1 libxrandr2 \
  libxtst6 libxi6 libxinerama1 libxrender1 libcurl4t64 libcrypt1 \
  libfontconfig1 libfreetype6 libpulse0 libxcb-composite0 libxcb-render-util0 \
