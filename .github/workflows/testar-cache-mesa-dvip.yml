@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: davinci-original-dvip-experimental
+  group: mesa-dvip-cache-validation
   cancel-in-progress: false
 jobs:
   prime:
