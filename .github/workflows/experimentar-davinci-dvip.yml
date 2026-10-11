@@ -68,13 +68,14 @@ jobs:
           fi
           test -e /dev/udmabuf || { echo 'Bloqueado: udmabuf indisponível neste kernel.'; exit 2; }
           uname -r > dvip-output/kernel.txt
-      - name: Reproduzir fonte, imagem-base e flags do Mesa aprovado
-        timeout-minutes: 25
+      - name: Restaurar ou compilar Mesa com cache de software livre
+        timeout-minutes: 30
+        uses: ./.github/actions/mesa-dvip-cache
+      - name: Atualizar runtime e scripts sem recompilar Mesa
+        timeout-minutes: 8
         shell: bash
         run: |
           set -euo pipefail
-          docker build --progress=plain -f davinci-resolve/experiments/dvip/mesa-build.Dockerfile \
-            -t codex-mesa-dvip davinci-resolve/experiments 2>&1 | tee dvip-output/mesa-build.log
           docker build --progress=plain -f davinci-resolve/experiments/dvip/runtime.Dockerfile \
             -t codex-resolve-dvip davinci-resolve/experiments 2>&1 | tee dvip-output/runtime-build.log
           docker run --rm codex-resolve-dvip cat /experiment/runtime-package-versions.txt > dvip-output/package-versions.txt

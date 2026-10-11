@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/testar-mesa-software-sharing.yml'
       - '.github/workflows/experimentar-davinci-dvip.yml'
+      - '.github/actions/mesa-dvip-cache/**'
       - 'davinci-resolve/experiments/dvip/*.py'
       - 'davinci-resolve/experiments/dvip/*Dockerfile'
 concurrency:
@@ -16,5 +17,6 @@ permissions:
   contents: read
 jobs:
   experiment:
+    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[mesa-cache-only]')
     uses: ./.github/workflows/experimentar-davinci-dvip.yml
     secrets: inherit

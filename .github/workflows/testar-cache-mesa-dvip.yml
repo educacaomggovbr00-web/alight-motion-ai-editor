@@ -1,0 +1,91 @@
+name: Testar cache Mesa DVIP — salvar e restaurar em runners distintos
+on:
+  workflow_dispatch:
+  push:
+    branches: ['experiment/davinci-21-1-1-software-dvip']
+    paths:
+      - '.github/workflows/testar-cache-mesa-dvip.yml'
+      - '.github/actions/mesa-dvip-cache/**'
+permissions:
+  contents: read
+concurrency:
+  group: davinci-original-dvip-experimental
+  cancel-in-progress: false
+jobs:
+  prime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    outputs:
+      image-id: ${{ steps.mesa.outputs.image-id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Compilar ou restaurar e gravar imagem Mesa livre
+        id: mesa
+        uses: ./.github/actions/mesa-dvip-cache
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mesa-cache-prime
+          path: dvip-output/
+          retention-days: 7
+          if-no-files-found: error
+  restore:
+    needs: prime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Restaurar em outro runner sem recompilar
+        id: mesa
+        uses: ./.github/actions/mesa-dvip-cache
+      - name: Exigir cache hit e imagem idêntica à do primeiro runner
+        env:
+          CACHE_HIT: ${{ steps.mesa.outputs.cache-hit }}
+          EXPECTED_IMAGE_ID: ${{ needs.prime.outputs.image-id }}
+          ACTUAL_IMAGE_ID: ${{ steps.mesa.outputs.image-id }}
+        shell: bash
+        run: |
+          test "$CACHE_HIT" = true || { echo 'Falha: cache não foi restaurado no segundo runner.'; exit 2; }
+          test "$EXPECTED_IMAGE_ID" = "$ACTUAL_IMAGE_ID" || { echo 'Falha: imagem restaurada divergente.'; exit 2; }
+      - name: Criar dispositivo de memória e repetir os quatro compartilhamentos reais
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -e /dev/udmabuf && ! -r /sys/class/misc/udmabuf/dev ]]; then
+            sudo modprobe udmabuf || true
+          fi
+          if [[ ! -e /dev/udmabuf && -r /sys/class/misc/udmabuf/dev ]]; then
+            IFS=: read -r major minor < /sys/class/misc/udmabuf/dev
+            sudo mknod -m 600 /dev/udmabuf c "$major" "$minor"
+          fi
+          test -e /dev/udmabuf || { echo 'Bloqueado: udmabuf ausente.'; exit 2; }
+          mkdir -p dvip-output/gate
+          probe_name="mesa-cache-proof-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          trap 'docker rm -f "$probe_name" >/dev/null 2>&1 || true' EXIT
+          timeout --kill-after=5s 240s docker run --rm --name "$probe_name" --memory=6g --cpus=2 \
+            --device /dev/udmabuf -e CODEX_EXPERIMENTAL_SOFTWARE_GL_SHARING=1 \
+            -v "$PWD/dvip-output/gate:/output" codex-mesa-dvip \
+            python3 /experiment/run-gl-sharing-matrix.py --output /output --label with-udmabuf
+          python3 - <<'PY'
+          import json, sys
+          from pathlib import Path
+          sys.path.insert(0,'davinci-resolve/experiments/dvip')
+          from supervise import verified
+          paths=list(Path('dvip-output/gate').glob('*-glx.json'))+list(Path('dvip-output/gate').glob('*-egl.json'))
+          reports=[json.loads(p.read_text()) for p in paths]
+          if len(reports)!=4 or not all(verified(r) for r in reports):
+              raise SystemExit('Falha: imagem restaurada não passou nos quatro buffers GL/CL.')
+          Path('dvip-output/cache-validation.json').write_text(json.dumps({'cacheRestoredOnDifferentRunner':True,'fourRealBuffersPassed':True,'proprietaryDownloadStarted':False},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mesa-cache-restore-proof
+          path: dvip-output/
+          retention-days: 7
+          if-no-files-found: error

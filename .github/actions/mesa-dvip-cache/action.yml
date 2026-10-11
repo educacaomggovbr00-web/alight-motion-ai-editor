@@ -1,0 +1,68 @@
+name: Mesa DVIP — cache exclusivo de software livre
+description: Restaura ou compila Mesa; salva antes dos testes do aplicativo proprietário.
+outputs:
+  cache-hit:
+    description: Cache exato encontrado nesta execução
+    value: ${{ steps.restore.outputs.cache-hit }}
+  image-id:
+    description: Identificador da imagem realmente carregada
+    value: ${{ steps.image.outputs.id }}
+runs:
+  using: composite
+  steps:
+    - name: Restaurar somente imagem Mesa de chave exata
+      id: restore
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ runner.temp }}/mesa-dvip-cache
+        key: mesa-dvip-image-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('davinci-resolve/experiments/dvip/mesa-build.Dockerfile', 'davinci-resolve/experiments/patch-mesa-software-sharing.py', 'davinci-resolve/experiments/gl-sharing-probe.py', 'davinci-resolve/experiments/vulkan-dmabuf-probe.py', 'davinci-resolve/experiments/run-gl-sharing-matrix.py') }}
+    - name: Conferir integridade e carregar Mesa sem recompilar
+      if: steps.restore.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd "$RUNNER_TEMP/mesa-dvip-cache"
+        sha256sum --check mesa.tar.zst.sha256
+        zstd -dc mesa.tar.zst | docker load
+        expected=$(cat image-id.txt)
+        actual=$(docker inspect --format '{{.Id}}' codex-mesa-dvip)
+        test "$actual" = "$expected" || { echo 'Cache bloqueado: identidade da imagem divergente.'; exit 2; }
+    - name: Compilar Mesa somente se não houver cache exato
+      if: steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p dvip-output
+        docker build --progress=plain -f davinci-resolve/experiments/dvip/mesa-build.Dockerfile \
+          -t codex-mesa-dvip davinci-resolve/experiments 2>&1 | tee dvip-output/mesa-build.log
+        mkdir -p "$RUNNER_TEMP/mesa-dvip-cache"
+        docker save codex-mesa-dvip | zstd -T2 -3 -o "$RUNNER_TEMP/mesa-dvip-cache/mesa.tar.zst"
+        cd "$RUNNER_TEMP/mesa-dvip-cache"
+        sha256sum mesa.tar.zst > mesa.tar.zst.sha256
+        docker inspect --format '{{.Id}}' codex-mesa-dvip > image-id.txt
+    - name: Salvar agora, mesmo que o DaVinci falhe mais tarde
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ runner.temp }}/mesa-dvip-cache
+        key: ${{ steps.restore.outputs.cache-primary-key }}
+    - name: Registrar estado real do cache
+      id: image
+      shell: bash
+      env:
+        MESA_CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+        MESA_CACHE_KEY: ${{ steps.restore.outputs.cache-primary-key }}
+      run: |
+        set -euo pipefail
+        mkdir -p dvip-output
+        image_id=$(docker inspect --format '{{.Id}}' codex-mesa-dvip)
+        echo "id=$image_id" >> "$GITHUB_OUTPUT"
+        export MESA_IMAGE_ID="$image_id"
+        python3 - <<'PY'
+        import json, os
+        from pathlib import Path
+        data={'cacheHit':os.environ['MESA_CACHE_HIT']=='true', 'key':os.environ['MESA_CACHE_KEY'], 'imageId':os.environ['MESA_IMAGE_ID'], 'containsProprietaryInstaller':False, 'runtimeRebuilt':True}
+        Path('dvip-output/mesa-cache.json').write_text(json.dumps(data,indent=2))
+        with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+            out.write('Mesa: '+('restaurado do cache exato' if data['cacheHit'] else 'compilado; gravação do cache solicitada')+'. Instalador e sessão do Resolve não são incluídos.\n')
+        PY

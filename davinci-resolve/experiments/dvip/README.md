@@ -34,3 +34,13 @@ O README de scripting incluído no aplicativo documenta a configuração de scri
 EULA, licença e autenticação não são automatizadas. Uma janela aberta não comprova interface utilizável. Ausência de mensagem de erro não comprova DVIP. Somente exportação real aprovada pelo FFprobe confirma codec H.264, 640×360, 30 FPS e três segundos. O teste inicial não contém áudio; edição de mídia pessoal e áudio continua pendente.
 
 Os relatórios distinguem compartilhamento, processo iniciado, diálogo Unsupported GPU, erros DVIP, conexão SDK, projeto, timeline e exportação. Nenhum resultado positivo é fabricado. Se falhar, o próximo experimento deve partir do erro registrado, sem repetir downloads desnecessários.
+
+## Cache do Mesa (branch experimental)
+
+A action local `.github/actions/mesa-dvip-cache` guarda somente `docker save codex-mesa-dvip`, comprimido com Zstandard, SHA-256 e ID da imagem. A imagem contém Mesa, LLVM, ferramentas de compilação e probes livres; não contém DaVinci, instaladores, mídia, licença, credenciais ou sessões. O runtime com os scripts atuais é reconstruído a partir desse Mesa a cada execução.
+
+A chave exata inclui sistema, arquitetura e hashes do Dockerfile, patch e três probes copiados. Mudança de código do supervisor não recompila Mesa; mudança nesses arquivos invalida o cache. Não há fallback para chaves antigas. A carga exige SHA-256 e ID de imagem correspondentes. Os quatro testes GL/CL continuam obrigatórios antes de qualquer download proprietário.
+
+O cache é salvo imediatamente depois da compilação, mesmo se o DVIP ou a exportação falharem depois. A primeira execução ainda compila; as próximas podem restaurar. Cache não é backup permanente: pode ser removido pelo GitHub por limites de armazenamento ou inatividade. Não preserva projetos ou o desktop, nem corrige o erro DVIP.
+
+O workflow separado `testar-cache-mesa-dvip.yml` verifica gravação num runner e restauração em outro, identidade da imagem e quatro buffers reais. Não utiliza o segredo do Resolve nem baixa o instalador. Commits marcados `[mesa-cache-only]` acionam esse teste sem iniciar uma nova tentativa pesada do aplicativo; o workflow manual original continua disponível.
