@@ -1,0 +1,35 @@
+name: DaVinci - teste real OpenCL por CPU (nao abre Resolve)
+on:
+  workflow_dispatch:
+  push:
+    paths: ['davinci-resolve/opencl_cpu_probe.c', '.github/workflows/testar-davinci-opencl-cpu.yml']
+permissions:
+  contents: read
+jobs:
+  software-compute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      POCL_MAX_PTHREAD_COUNT: '2'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Instalar runtime livre CPU e compilador
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends pocl-opencl-icd clinfo gcc ocl-icd-libopencl1
+      - name: Compilar e executar kernel OpenCL real
+        run: |
+          mkdir -p davinci-resolve/runtime
+          clinfo -l
+          gcc -O2 davinci-resolve/opencl_cpu_probe.c -Wl,-l:libOpenCL.so.1 -o "$RUNNER_TEMP/opencl_cpu_probe"
+          timeout 45 "$RUNNER_TEMP/opencl_cpu_probe" > davinci-resolve/runtime/opencl-cpu.json
+          cat davinci-resolve/runtime/opencl-cpu.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opencl-cpu-real-test
+          path: davinci-resolve/runtime/opencl-cpu.json
+          retention-days: 7
+          if-no-files-found: error
+      - run: echo 'Kernel CPU executado. Isso nao comprova GPU fisica, VRAM dedicada, abertura ou exportacao no DaVinci Resolve.' >> "$GITHUB_STEP_SUMMARY"
