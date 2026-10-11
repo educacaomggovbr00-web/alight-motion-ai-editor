@@ -15,7 +15,7 @@ RUN python3 /build/patch.py /build/mesa-26.2.4 > /build/patch-result.json \
  -Dgallium-va=disabled -Dvideo-codecs=[] -Dbuild-tests=false -Dtools=[] \
  && ninja -C /build/compiled -j 2 && meson install -C /build/compiled
 ENV LD_LIBRARY_PATH=/opt/mesa-experimental/lib LIBGL_DRIVERS_PATH=/opt/mesa-experimental/lib/dri OCL_ICD_VENDORS=/opt/mesa-experimental/etc/OpenCL/vendors VK_DRIVER_FILES=/opt/mesa-experimental/share/vulkan/icd.d/lvp_icd.x86_64.json __EGL_VENDOR_LIBRARY_FILENAMES=/opt/mesa-experimental/share/glvnd/egl_vendor.d/50_mesa.json
-ENV LIBGL_ALWAYS_SOFTWARE=1 RUSTICL_ENABLE=zink GALLIUM_DRIVER=zink MESA_LOADER_DRIVER_OVERRIDE=zink LP_NUM_THREADS=2
+ENV LIBGL_ALWAYS_SOFTWARE=1 RUSTICL_ENABLE=llvmpipe,zink GALLIUM_DRIVER=zink MESA_LOADER_DRIVER_OVERRIDE=zink LP_NUM_THREADS=2
 RUN test -f /opt/mesa-experimental/share/vulkan/icd.d/lvp_icd.x86_64.json && test -f /opt/mesa-experimental/share/glvnd/egl_vendor.d/50_mesa.json
 WORKDIR /experiment
 COPY gl-sharing-probe.py vulkan-dmabuf-probe.py run-gl-sharing-matrix.py /experiment/
