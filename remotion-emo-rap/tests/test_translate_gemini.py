@@ -21,10 +21,12 @@ class GeminiSubtitleTests(unittest.TestCase):
             {"start":2.1, "end":2.8, "original":"unclear", "pt_br":"talvez",
              "clarity":"uncertain"}]}
         lyrics, review = trans.transform_response(json.dumps(raw),4)
-        self.assertEqual(lyrics["words"], [{
-            "text":"Sinto saudade de você","start":0.5,"end":1.5,
-            "font":"heavy","color":"#ffffff","x":0.5,"y":0.66
-        }])
+        self.assertEqual(
+            [(w["text"], w["start"], w["end"]) for w in lyrics["words"]],
+            [("Sinto", 0.5, 0.75), ("saudade", 0.75, 1.0),
+             ("de", 1.0, 1.25), ("você", 1.25, 1.5)]
+        )
+        self.assertTrue(all("font" not in w and "color" not in w for w in lyrics["words"]))
         self.assertEqual(review["discarded_uncertain"],1)
         self.assertEqual(len(review["segments"]),2)
 
@@ -37,6 +39,13 @@ class GeminiSubtitleTests(unittest.TestCase):
         self.assertEqual(" ".join(w["text"] for w in lyrics["words"]),text)
         self.assertTrue(all(len(w["text"])<=40 for w in lyrics["words"]))
         self.assertEqual(lyrics["words"][-1]["end"],3.5)
+
+    def test_short_segments_remain_readable(self):
+        raw={"language":"en","segments":[{"start":0.5,"end":0.68,
+            "original":"quick","pt_br":"muito rápido para dividir",
+            "clarity":"clear"}]}
+        lyrics,_=trans.transform_response(raw,4)
+        self.assertEqual([w["text"] for w in lyrics["words"]],["muito rápido para dividir"])
 
     def test_no_audible_words_means_no_fabricated_subtitles(self):
         lyrics,review=trans.transform_response({"language":"unknown","segments":[]},15)
