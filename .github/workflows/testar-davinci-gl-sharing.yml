@@ -1,0 +1,85 @@
+name: DaVinci — testar Zink GL sharing sem GPU
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/testar-davinci-gl-sharing.yml'
+      - 'davinci-resolve/experiments/gl-sharing-probe.py'
+      - 'davinci-resolve/experiments/gl-sharing.Dockerfile'
+permissions:
+  contents: read
+jobs:
+  interop:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Conferir dispositivo DMA-BUF oficial do kernel
+        shell: bash
+        run: |
+          mkdir -p gl-sharing-output
+          uname -r > gl-sharing-output/kernel.txt
+          sudo modprobe udmabuf > gl-sharing-output/modprobe.log 2>&1 || true
+          if [[ -r /sys/class/misc/udmabuf/dev && ! -e /dev/udmabuf ]]; then
+            IFS=: read -r major minor < /sys/class/misc/udmabuf/dev
+            sudo mknod -m 600 /dev/udmabuf c "$major" "$minor"
+          fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('/dev/udmabuf')
+          Path('gl-sharing-output/host.json').write_text(json.dumps({
+              'udmabufPresent': p.exists(),
+              'renderNodes': [str(x) for x in Path('/dev/dri').glob('renderD*')],
+              'state': 'experimental', 'resolveTested': False
+          }, indent=2))
+          print('udmabuf disponível:', p.exists())
+          PY
+      - name: Preparar Mesa oficial em container isolado
+        run: docker build -f davinci-resolve/experiments/gl-sharing.Dockerfile -t codex-gl-sharing davinci-resolve/experiments
+      - name: Medir GLX e EGL reais com e sem udmabuf
+        shell: bash
+        run: |
+          set -euo pipefail
+          for mode in without-udmabuf with-udmabuf; do
+            device_args=()
+            if [[ "$mode" == with-udmabuf ]]; then
+              if [[ ! -e /dev/udmabuf ]]; then
+                echo 'Teste com udmabuf bloqueado: dispositivo não foi disponibilizado.'
+                continue
+              fi
+              device_args+=(--device /dev/udmabuf)
+            fi
+            for backend in glx egl; do
+              docker run --rm --memory=4g --cpus=2 "${device_args[@]}" \
+                -v "$PWD/gl-sharing-output:/output" codex-gl-sharing \
+                timeout --kill-after=5s 60s xvfb-run -a -s '-screen 0 1280x720x24 -nolisten tcp' \
+                python3 /experiment/gl-sharing-probe.py --backend "$backend" \
+                --output "/output/$mode-$backend.json"
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: davinci-gl-sharing-evidence
+          path: gl-sharing-output/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Verificar compartilhamento, sem alegar execução do Resolve
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          probes = [json.loads(p.read_text()) for p in Path('gl-sharing-output').glob('*-glx.json')]
+          probes += [json.loads(p.read_text()) for p in Path('gl-sharing-output').glob('*-egl.json')]
+          ok = any(p.get('glSharingPassed') is True for p in probes)
+          message = ('Compartilhamento GL/OpenCL comprovado pelo buffer. Resolve ainda NÃO testado neste workflow.'
+                     if ok else 'Bloqueado: nenhuma configuração passou o compartilhamento GL/OpenCL. Não houve edição ou exportação pelo Resolve.')
+          print(message)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write(message + '\n')
+          sys.exit(0 if ok else 1)
+          PY
