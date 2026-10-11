@@ -165,3 +165,7 @@ Node 22.18.0 no Actions. Remotion/bundler/renderer 4.0.534, dependências direta
 API oficial: [renderMedia](https://www.remotion.dev/docs/renderer/render-media), [OffthreadVideo](https://www.remotion.dev/docs/offthreadvideo), [spring](https://www.remotion.dev/docs/spring), [interpolate](https://www.remotion.dev/docs/interpolate). Consulte a [licença Remotion](https://www.remotion.dev/docs/license/pricing) antes de ampliar uso empresarial; não foi comprada licença nem contratado serviço.
 
 A prova e limitações da execução estão em [RESULTADOS.md](RESULTADOS.md). Só declarar render validado após job real bem-sucedido; implementação de código isolada não equivale a render funcional.
+
+## Gemini e edit de 15 segundos
+
+Consulte o [relatorio e instrucoes pelo Android](RELATORIO-GEMINI.md) para configurar uma chave nova, preservar a privacidade e revisar timestamps aproximados. O preset big-text-impact agora inclui glitch reduzido nas batidas e zooms nos inicios das palavras. A traducao real depende da chamada autorizada com GEMINI_API_KEY.

@@ -54,14 +54,14 @@ export const DarkColorGrade: React.FC<{
         filter:
           preset === "dark-lyrics"
             ? "grayscale(1) brightness(.45) contrast(1.2)"
-            : `saturate(${pulse > 0.5 ? 1.4 : 0.35}) contrast(1.3) brightness(${0.6 + pulse * 0.18}) hue-rotate(${(Math.floor(frame / 30) % 3) * 35}deg)`,
+            : `saturate(${pulse > 0.5 ? 1.4 : 0.35}) contrast(1.3) brightness(${0.76 + pulse * 0.12}) hue-rotate(${pulse * 25}deg)`,
         opacity: 0.96,
       }}
     >
       {children}
       <AbsoluteFill
         style={{
-          background: "linear-gradient(0deg,rgba(0,0,0,.85),transparent 70%)",
+          background: "linear-gradient(0deg,rgba(0,0,0,.65),transparent 70%)",
           boxShadow: `inset 0 0 130px ${30 * intensity}px #000`,
         }}
       />
@@ -95,7 +95,7 @@ export const ImpactZoom: React.FC<{
   const { durationInFrames } = useVideoConfig();
   const z = slow
     ? interpolate(f, [0, durationInFrames], [1.03, 1.15])
-    : 1.05 + 0.16 * pulse * intensity;
+    : interpolate(f, [0, durationInFrames], [1.03, 1.09]) + 0.12 * pulse * intensity;
   return (
     <AbsoluteFill
       style={{
@@ -144,7 +144,8 @@ export const GlitchEffect: React.FC<{
   children: React.ReactNode;
   pulse: number;
   intensity: number;
-}> = ({ children, pulse, intensity }) => {
+  reduced?: boolean;
+}> = ({ children, pulse, intensity, reduced = true }) => {
   const f = useCurrentFrame();
   return (
     <AbsoluteFill>
@@ -154,8 +155,8 @@ export const GlitchEffect: React.FC<{
           style={{
             clipPath: `inset(${(f * 7) % 65}% 0 ${10 + ((f * 11) % 20)}% 0)`,
             transform: `translateX(${(f % 2 ? 1 : -1) * 18 * intensity}px)`,
-            filter: "invert(1)",
-            opacity: 0.45,
+            filter: reduced ? "contrast(1.2) saturate(1.5)" : "invert(1)",
+            opacity: reduced ? 0.18 * intensity : 0.45 * intensity,
           }}
         >
           {children}
@@ -189,3 +190,4 @@ export const FlashOverlay: React.FC<{
     />
   );
 };
+

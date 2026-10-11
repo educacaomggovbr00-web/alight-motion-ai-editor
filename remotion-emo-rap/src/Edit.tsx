@@ -23,6 +23,9 @@ export const Edit: React.FC<EditProps> = (p) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const pulse = p.effects ? pulseAt(frame, fps, p.beats) : 0;
+  const voicePulse = p.effects ? pulseAt(frame, fps, p.words.map(w => w.start), 0.16) : 0;
+  const cameraPulse = Math.max(pulse, voicePulse * 0.35);
+  const glitchIntensity = p.intensity * (p.preset === "big-text-impact" ? 0.45 : 1);
   const layers = (
     <AbsoluteFill>
       <ArtistVideo src={p.video} />
@@ -45,10 +48,10 @@ export const Edit: React.FC<EditProps> = (p) => {
       </ImpactZoom>
     ) : (
       <BeatShake pulse={pulse} intensity={p.intensity}>
-        <ImpactZoom pulse={pulse} intensity={p.intensity}>
-          {p.preset === "emo-rap-glitch" ? (
-            <GlitchEffect pulse={pulse} intensity={p.intensity}>
-              <RGBSplit pulse={pulse} intensity={p.intensity}>
+        <ImpactZoom pulse={cameraPulse} intensity={p.intensity}>
+          {p.preset === "emo-rap-glitch" || p.preset === "big-text-impact" ? (
+            <GlitchEffect pulse={pulse} intensity={glitchIntensity} reduced={p.reduceFlashes}>
+              <RGBSplit pulse={pulse} intensity={glitchIntensity}>
                 {graded}
               </RGBSplit>
             </GlitchEffect>
@@ -90,3 +93,4 @@ export const Edit: React.FC<EditProps> = (p) => {
     </AbsoluteFill>
   );
 };
+

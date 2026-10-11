@@ -42,7 +42,7 @@ const WordLayer: React.FC<{ word: Word; index: number; p: EditProps }> = ({
     width * (big ? (index % 3 === 1 ? 0.16 : 0.24) : aggressive ? 0.18 : 0.14);
   const fontSize = Math.min(
     base * (word.size ?? 1),
-    (width * 0.85) / Math.max(1, word.text.length * 0.62),
+    (width * 0.85) / Math.max(1, Math.max(...word.text.split(/\s+/).map(t => t.length)) * 0.62),
   );
   const scale = p.effects
     ? p.preset === "dark-lyrics"
@@ -61,7 +61,7 @@ const WordLayer: React.FC<{ word: Word; index: number; p: EditProps }> = ({
   const color =
     word.color ??
     (p.preset === "dark-lyrics" ? "#ffffff" : colors[index % colors.length]);
-  const font = word.font ?? (big && index % 2 === 0 ? "gothic" : "heavy");
+  const font = word.font ?? (big && index % 2 === 0 && !word.text.includes(" ") ? "gothic" : "heavy");
   return (
     <div
       style={{
@@ -79,12 +79,14 @@ const WordLayer: React.FC<{ word: Word; index: number; p: EditProps }> = ({
         fontSize,
         lineHeight: 0.95,
         textTransform: "uppercase",
-        whiteSpace: "nowrap",
+        whiteSpace: "normal",
+        width: word.text.includes(" ") ? width * 0.8 : undefined,
+        maxWidth: width * 0.86,
         color,
         textAlign: "center",
         letterSpacing: big ? "-2px" : "1px",
         textShadow: `0 0 ${aggressive ? 20 : 8}px ${color}99, 3px 4px 0 #000`,
-        WebkitTextStroke: big ? "1px #ffffff40" : undefined,
+        WebkitTextStroke: big ? "1px #0009" : undefined,
       }}
     >
       {aggressive && p.effects && (
@@ -123,3 +125,4 @@ export const AnimatedLyrics: React.FC<{ p: EditProps }> = ({ p }) => (
     ))}
   </AbsoluteFill>
 );
+

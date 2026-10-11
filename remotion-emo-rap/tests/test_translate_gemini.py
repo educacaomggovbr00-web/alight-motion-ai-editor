@@ -73,14 +73,16 @@ class GeminiSubtitleTests(unittest.TestCase):
             def delete(self, *, name):
                 calls["deleted"]=(name==uploaded.name)
         class Interactions:
-            def create(self, *, model, input, response_format):
-                self.assertion= (model==trans.MODEL and input[1]["uri"]==uploaded.uri
+            def create(self, *, model, input, response_format, store, timeout):
+                assert store is False and timeout == 120
+                assert (model==trans.MODEL and input[1]["uri"]==uploaded.uri
                                  and response_format=={'type':'text','mime_type':'application/json','schema':trans.SCHEMA})
                 calls["sent"]+=1
                 return types.SimpleNamespace(output_text='{"language":"en","segments":[]}')
         class Client:
-            def __init__(self,*,api_key):
+            def __init__(self,*,api_key,http_options):
                 assert api_key=="only-for-test"
+                assert http_options["retry_options"]["attempts"] == 1
                 self.files=Files()
                 self.interactions=Interactions()
         fake_google=types.ModuleType("google")
@@ -93,6 +95,19 @@ class GeminiSubtitleTests(unittest.TestCase):
         self.assertIn('"segments":[]',result)
         self.assertEqual(calls["sent"],1)
         self.assertTrue(calls["deleted"])
+
+    def test_overlap_and_rounding_rejected(self):
+        for segments in [[{ "start":0,"end":2},{"start":1,"end":3}], [{"start":0.0001,"end":0.0002}]]:
+            for item in segments:
+                item.update(original="heard",pt_br="ouvido",clarity="clear")
+            with self.assertRaises(ValueError):
+                trans.transform_response({"segments":segments},4)
+
+    def test_safe_errors_do_not_repeat_upstream_credentials(self):
+        err=Exception("private upstream content")
+        err.code=429
+        self.assertIn("Quota",trans.safe_error(err))
+        self.assertNotIn("private",trans.safe_error(err))
 
     def test_missing_key_cannot_replace_manual_lyrics(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -113,3 +128,4 @@ class GeminiSubtitleTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
+

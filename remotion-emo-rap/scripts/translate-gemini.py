@@ -83,7 +83,7 @@ def transform_response(raw, duration):
     segments = raw["segments"]
     if len(segments) > MAX_SEGMENTS:
         raise ValueError("Muitos segmentos")
-    if not isinstance(duration, (int, float)) or not math.isfinite(duration) or not 1 <= duration <= 30:
+    if type(duration) not in (int, float) or not math.isfinite(duration) or not 1 <= duration <= 30:
         raise ValueError("Duracao invalida")
     words, review = [], []
     uncertain, previous = 0, -1.0
@@ -93,10 +93,12 @@ def transform_response(raw, duration):
         start, end = seg.get("start"), seg.get("end")
         if (type(start) not in (int, float) or type(end) not in (int, float)
             or not math.isfinite(start) or not math.isfinite(end)
-            or not 0 <= start < end <= duration + 0.05 or start + 0.001 < previous):
+            or not 0 <= start < end <= duration + 0.05 or start < previous):
             raise ValueError("Timestamps invalidos")
-        previous = start
+        previous = end
         start, end = round(float(start), 3), round(min(float(end), duration), 3)
+        if end <= start:
+            raise ValueError("Timestamps colapsaram ao arredondar")
         original, translated = clean_text(seg.get("original")), clean_text(seg.get("pt_br"))
         clarity = seg.get("clarity")
         if clarity not in ("clear", "uncertain"):
@@ -126,6 +128,9 @@ def transform_response(raw, duration):
     if len(words) > 300:
         raise ValueError("Legendas demais")
     return {"words": words}, {
+        "model": MODEL,
+        "word_timing": "approximate_uniform_distribution_not_forced_alignment",
+        "requires_human_review": True,
         "source_language": clean_text(raw.get("language", "unknown")),
         "segments": review,
         "discarded_uncertain": uncertain,
@@ -158,12 +163,14 @@ def call_gemini(wav):
     key = os.environ.get("GEMINI_API_KEY", "")
     if not key:
         raise ValueError("Configure GEMINI_API_KEY em Actions Secrets")
-    client = genai.Client(api_key=key)
+    client = genai.Client(api_key=key, http_options={"timeout": 120000, "retry_options": {"attempts": 1}})
     uploaded = None
     try:
         uploaded = client.files.upload(file=str(wav), config={"mime_type": "audio/wav"})
         interaction = client.interactions.create(
             model=MODEL,
+            store=False,
+            timeout=120,
             input=[
                 {"type": "text", "text": PROMPT},
                 {"type": "audio", "uri": uploaded.uri, "mime_type": uploaded.mime_type},
@@ -179,10 +186,20 @@ def call_gemini(wav):
                 client.files.delete(name=uploaded.name)
             except Exception:
                 # Excluir no servidor e uma tentativa; a retencao do provedor se aplica.
-                pass
+                print("Aviso: limpeza do audio no provedor nao confirmada; consulte a politica de retencao.", file=sys.stderr)
+
+def safe_error(error):
+    code = getattr(error, "code", getattr(error, "status_code", None))
+    return {401: "Chave nova rejeitada: substitua GEMINI_API_KEY em Actions Secrets.",
+            403: "Acesso negado: confira permissoes da nova chave e disponibilidade regional.",
+            404: "Modelo/arquivo indisponivel para esta conta; consulte os modelos habilitados.",
+            429: "Quota esgotada ou limite de requisicoes. Aguarde; nao houve repeticao automatica."}.get(code,
+            "Nao foi possivel transcrever: confira audio, timestamps, acesso ao modelo e Secret GEMINI_API_KEY. Nenhuma letra foi inventada.")
 
 def main():
     duration = float(os.environ.get("DURATION", "15"))
+    if not math.isfinite(duration) or not 1 <= duration <= 30:
+        raise ValueError("Duracao deve estar entre 1 e 30 segundos")
     directory = Path("public/input")
     # Ao selecionar explicitamente IA, sobrescreve lyrics.json APENAS no runner;
     # o ZIP original e o repositorio nao sao alterados.
@@ -206,6 +223,5 @@ if __name__ == "__main__":
         main()
     except Exception as error:
         # Never show lyrics or upstream errors that could include API credentials.
-        print(f"IA Gemini nao concluiu: {type(error).__name__}. "
-              "Verifique secret, quota/modelo e audio. Nenhum segredo impresso.", file=sys.stderr)
+        print("IA Gemini nao concluiu. " + safe_error(error), file=sys.stderr)
         sys.exit(2)

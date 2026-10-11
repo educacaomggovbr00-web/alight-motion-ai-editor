@@ -5,7 +5,7 @@ on:
       preset:
         type: choice
         options: [dark-lyrics, emo-rap-glitch, big-text-impact]
-        default: dark-lyrics
+        default: big-text-impact
       intensidade:
         type: choice
         options: [leve, medio, forte]
@@ -73,6 +73,15 @@ jobs:
             echo '::error::Use copia privada deste repo para midia pessoal. Artefatos deste repo publico podem ser baixados por terceiros.'
             exit 1
           fi
+      - name: Confirmar nova chave configurada (sem revelar valor)
+        if: inputs.traducao_ia == 'gemini-ptbr'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo '::error::Configure uma chave NOVA em Settings > Secrets and variables > Actions > New repository secret: GEMINI_API_KEY. Nao envie a chave no chat.'
+            exit 1
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: '22.18.0'
@@ -90,9 +99,11 @@ jobs:
           REMOTION_INPUT_BUNDLE_URL: ${{ secrets.REMOTION_INPUT_BUNDLE_URL }}
           REMOTION_MEDIA_HOST: ${{ vars.REMOTION_MEDIA_HOST }}
         run: python3 scripts/download-input.py
-      - name: Importar ZIP presente no repositorio (publico)
+      - name: Importar ZIP do repositorio autorizado
         if: inputs.entrada == 'repo-zip'
         run: python3 scripts/import-repo-zip.py
+      - name: Validar midia antes de enviar audio ao Gemini
+        run: npm run prepare:edit
       - name: Preparar Python para traducao IA (opcional)
         if: inputs.traducao_ia == 'gemini-ptbr'
         uses: actions/setup-python@v5

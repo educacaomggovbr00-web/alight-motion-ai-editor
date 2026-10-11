@@ -79,6 +79,6 @@ if (process.argv[1]?.endsWith("prepare.ts")) {
     demo: process.env.DEMO === "true",
   });
   console.log(
-    `Entrada validada: ${p.words.length} palavras, ${p.beats.length} impactos manuais; nao houve transcricao nem deteccao automatica`,
+    `Entrada validada: ${p.words.length} palavras, ${p.beats.length} impactos fornecidos; confira a origem e a revisao humana das legendas`,
   );
 }
