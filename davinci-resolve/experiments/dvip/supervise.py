@@ -105,7 +105,7 @@ def main():
         debug=Path.home()/'.local/share/DaVinciResolve/logs/ResolveDebug.txt'
         offset=debug.stat().st_size if debug.exists() else 0
         with tempfile.TemporaryFile() as log:
-            app=subprocess.Popen([str(executable)],env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            app=subprocess.Popen(['gdb','--batch','--quiet','-ex','set pagination off','-ex','run','-ex','thread apply all bt','--args',str(executable)],env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
             result.update(resolveStarted=True,state='experimental')
             for _ in range(40):
                 if app.poll() is not None:break
@@ -141,12 +141,14 @@ def main():
             with debug.open('rb') as f:
                 if debug.stat().st_size>=offset:f.seek(offset)
                 recent=sanitized(f.read(8*1024**2).decode(errors='replace'))
+            (a.output/'resolve-debug-fresh.log').write_text(recent)
             evidence=[l for l in recent.splitlines() if re.search(r'DVIP|OpenCL|OpenGL|GPU|Running DaVinci|21\.1\.1|Error|ERROR|Failed|LOADING',l)]
             (a.output/'resolve-relevant.log').write_text('\n'.join(evidence)+'\n')
             result['dvipErrors']=[l for l in evidence if 'DVIP Exception:' in l or 'failed to create context' in l or 'Failed to initialize OpenCL board manager' in l]
             result['version21ConfirmedInLog']='21.1.1' in recent
+        if 'CrashReport' in recent if debug.exists() else False: result['nativeCrashReportObserved']=True
         result['reason']='Render real validado.' if result['exportProven'] else 'Execução observada; consulte logs/SDK. Ausência de erro não comprova DVIP ou editor funcional.'
-        if result.get('dvipErrors') or result.get('unsupportedGpuModeObserved'):result['state']='bloqueado'
+        if result.get('dvipErrors') or result.get('unsupportedGpuModeObserved') or result.get('nativeCrashReportObserved'):result['state']='bloqueado'
         if 'Failed to create application support directories' in (a.output/'application.log').read_text():
             result.update(state='bloqueado',reason='Failed to create application support directories')
         return 0 if result['exportProven'] else 2
