@@ -44,3 +44,5 @@ A chave exata inclui sistema, arquitetura e hashes do Dockerfile, patch e três 
 O cache é salvo imediatamente depois da compilação, mesmo se o DVIP ou a exportação falharem depois. A primeira execução ainda compila; as próximas podem restaurar. Cache não é backup permanente: pode ser removido pelo GitHub por limites de armazenamento ou inatividade. Não preserva projetos ou o desktop, nem corrige o erro DVIP.
 
 O workflow separado `testar-cache-mesa-dvip.yml` verifica gravação num runner e restauração em outro, identidade da imagem e quatro buffers reais. Não utiliza o segredo do Resolve nem baixa o instalador. Commits marcados `[mesa-cache-only]` acionam esse teste sem iniciar uma nova tentativa pesada do aplicativo; o workflow manual original continua disponível.
+
+Validação real do cache: [RESULTADO-CACHE.md](RESULTADO-CACHE.md). Gravação e restauração entre runners e execuções passaram; carga medida em 45–61 segundos. Avanço nativo GLX: [RESULTADO-GLX-INTERFACE.md](RESULTADO-GLX-INTERFACE.md). Exportação pelo Resolve ainda não comprovada.

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "dateUTC": "2026-10-11",
+  "branch": "experiment/davinci-21-1-1-software-dvip",
+  "state": "testado",
+  "cacheSaved": true,
+  "cacheRestoredAcrossRunners": true,
+  "cacheRestoredAcrossWorkflowRuns": true,
+  "coldRun": {
+    "id": 38176656297,
+    "conclusion": "success",
+    "buildCompressSaveSeconds": 471,
+    "restoreVerifyLoadSeconds": 45,
+    "sharingMatrixSeconds": 4
+  },
+  "finalRun": {
+    "id": 38177153826,
+    "conclusion": "success",
+    "commit": "30bb2bdad48fa49fcc185a9970dcd52ddb2de6e4",
+    "primeRestoreSeconds": 45,
+    "secondRestoreSeconds": 61,
+    "sharingMatrixSeconds": 3
+  },
+  "artifact": {
+    "id": 11716925190,
+    "name": "mesa-cache-restore-proof",
+    "digest": "sha256:bf3b260a0ca4302416a5c1b767fd2dd053d4de6fbe7a3be26dde9805d1911472",
+    "expiresAt": "2026-10-18T21:41:34Z"
+  },
+  "compressedSizeApproxMiB": 869,
+  "key": "mesa-dvip-image-v1-Linux-X64-fa4f883c1cb25e60943abf0b8e7cf3bf4322fe9209f16035f749638137210be9",
+  "imageId": "sha256:b6824aac699a728eda3502901d38c8f3ddddd87fc077b2b14d6d9997f1b56250",
+  "fourRealBuffersPassed": true,
+  "independentArtifactVerificationPassed": true,
+  "allExpectedGLValues": [
+    42,
+    8,
+    9,
+    10
+  ],
+  "proprietaryDownloadStarted": false,
+  "containsInstaller": false,
+  "containsResolve": false,
+  "containsCredentials": false,
+  "sessionPersisted": false,
+  "projectsPersisted": false,
+  "fullCachedResolveWorkflowExecuted": false,
+  "mainPreserved": true,
+  "mainSha": "48aaecb8168783c13130833cf23c327349c26471",
+  "limitations": [
+    "Runtime precisa ser atualizado; a preparação do DaVinci não foi eliminada.",
+    "Cache pode ser removido por quota ou inatividade.",
+    "Interface GLX e contexto DVIP observados em 38175687312; edição e exportação continuam não comprovadas."
+  ]
+}
