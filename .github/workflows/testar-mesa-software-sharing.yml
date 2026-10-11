@@ -43,7 +43,7 @@ jobs:
             timeout --kill-after=5s 240s docker run --rm --name "$probe_name" --memory=5g --cpus=2 \
               --device /dev/udmabuf -e CODEX_EXPERIMENTAL_SOFTWARE_GL_SHARING="$optin" \
               -v "$PWD/patch-output:/output" mesa-software-patch \
-              python3 /experiment/run-gl-sharing-matrix.py --output /output --label "patch-optin-$optin"
+              python3 /experiment/run-gl-sharing-matrix.py --output "/output/patch-optin-$optin" --label with-udmabuf
           done
       - uses: actions/upload-artifact@v4
         if: always()
@@ -56,7 +56,8 @@ jobs:
           python3 - <<'PY'
           import json, os
           from pathlib import Path
-          reports = [json.loads(p.read_text()) for p in Path('patch-output').glob('patch-optin-1-*.json')]
+          reports = [json.loads(p.read_text()) for p in Path('patch-output/patch-optin-1').glob('*-glx.json')]
+          reports += [json.loads(p.read_text()) for p in Path('patch-output/patch-optin-1').glob('*-egl.json')]
           passed = any(r.get('glSharingPassed') is True for r in reports)
           msg = 'Buffer GL/OpenCL compartilhado: ' + str(passed) + '. DaVinci não iniciado; edição/exportação não comprovadas.'
           print(msg)
