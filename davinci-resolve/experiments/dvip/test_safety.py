@@ -80,3 +80,10 @@ class OnboardingSafety(unittest.TestCase):
     def test_unrecognized_dialog_not_clicked(self):
         from supervise import onboarding_button
         self.assertIsNone(onboarding_button('Error Continue'))
+
+class VerifiedSetupScreen(unittest.TestCase):
+    def test_only_known_setup_skip(self):
+        from supervise import onboarding_button
+        text="GREAT, YOU'RE ALMOST THERE! Before jumping straight into a project let's make sure you're all set up. SKIP AND START RIGHT NOW"
+        self.assertEqual(onboarding_button(text),'skip')
+        self.assertIsNone(onboarding_button(text+' license agreement'))

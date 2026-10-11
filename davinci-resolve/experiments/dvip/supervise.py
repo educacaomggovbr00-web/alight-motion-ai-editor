@@ -56,6 +56,7 @@ def onboarding_button(text):
     if any(x in text for x in ['license agreement','terms and conditions','sign in','activation','license key']):return None
     if "what's new in davinci resolve" in text and 'continue' in text:return 'continue'
     if 'welcome' in text and 'davinci resolve' in text and 'skip' in text:return 'skip'
+    if 'almost there' in text and 'before jumping straight into a project' in text and 'skip and start right now' in text:return 'skip'
     return None
 
 def advance_onboarding(output, env):
