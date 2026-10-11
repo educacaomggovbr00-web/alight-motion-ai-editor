@@ -161,7 +161,7 @@ def call_gemini(wav):
                 {"type": "text", "text": PROMPT},
                 {"type": "audio", "uri": uploaded.uri, "mime_type": uploaded.mime_type},
             ],
-            response_format=SCHEMA,
+            response_format={"type": "text", "mime_type": "application/json", "schema": SCHEMA},
         )
         if not interaction.output_text:
             raise ValueError("Resposta Gemini vazia")
