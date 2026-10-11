@@ -26,6 +26,23 @@ jobs:
       - name: Salvar ou restaurar bibliotecas livres de execução
         id: deps
         uses: ./.github/actions/resolve-deps-cache
+      - name: Verificar cifra autenticada de mídia sem usar dados pessoais
+        run: |
+          docker run --rm --memory=1g --ulimit core=0 -v "$PWD/davinci-resolve/experiments/dvip:/scripts:ro" codex-resolve-deps \
+            python3 -m unittest discover -s /scripts -p test_private.py -v
+      - name: Criar somente envelope de fixture sem mídia pessoal
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/private-cache-fixture"
+          docker run --rm --user "$(id -u):$(id -g)" --memory=1g --ulimit core=0 \
+            -v "$RUNNER_TEMP/private-cache-fixture:/encrypted" \
+            -v "$PWD/davinci-resolve/experiments/dvip:/scripts:ro" codex-resolve-deps \
+            python3 -c 'import sys; from pathlib import Path; sys.path.insert(0,"/scripts"); from private_crypto import encrypt; p=Path("/tmp/unit-fixture"); p.write_bytes(b"UNIT_FIXTURE_NOT_MEDIA"); encrypt(p,Path("/encrypted/prepared.dvi"),"TEST_ONLY_NOT_A_REAL_SECRET_12345","input")'
+      - name: Salvar fixture cifrada para teste entre runners
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/private-cache-fixture
+          key: dvr-encrypted-fixture-v1-${{ hashFiles('davinci-resolve/experiments/dvip/private_crypto.py') }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -55,6 +72,22 @@ jobs:
         run: |
           test "$DEPS_CACHE_HIT" = true || { echo 'Falha: dependências não restauradas.'; exit 2; }
           test "$EXPECTED_DEPS_ID" = "$ACTUAL_DEPS_ID" || { echo 'Falha: identidade das dependências divergente.'; exit 2; }
+      - name: Restaurar fixture cifrada, nunca um vídeo pessoal
+        id: encrypted-fixture
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/private-cache-fixture
+          key: dvr-encrypted-fixture-v1-${{ hashFiles('davinci-resolve/experiments/dvip/private_crypto.py') }}
+      - name: Exigir cache hit e abertura autenticada da fixture
+        env:
+          FIXTURE_CACHE_HIT: ${{ steps.encrypted-fixture.outputs.cache-hit }}
+        shell: bash
+        run: |
+          test "$FIXTURE_CACHE_HIT" = true || { echo 'Fixture cifrada não restaurada.'; exit 2; }
+          docker run --rm --memory=1g --ulimit core=0 \
+            -v "$RUNNER_TEMP/private-cache-fixture:/encrypted:ro" \
+            -v "$PWD/davinci-resolve/experiments/dvip:/scripts:ro" codex-resolve-deps \
+            python3 -c 'import sys; from pathlib import Path; sys.path.insert(0,"/scripts"); from private_crypto import decrypt; p=Path("/tmp/opened-unit-fixture"); decrypt(Path("/encrypted/prepared.dvi"),p,"TEST_ONLY_NOT_A_REAL_SECRET_12345","input"); assert p.read_bytes()==b"UNIT_FIXTURE_NOT_MEDIA"; print("Fixture cifrada restaurada e autenticada; não contém mídia pessoal.")'
       - name: Criar dispositivo de memória e repetir os quatro compartilhamentos reais
         timeout-minutes: 5
         shell: bash

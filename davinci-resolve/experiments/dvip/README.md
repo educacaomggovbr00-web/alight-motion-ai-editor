@@ -46,3 +46,26 @@ O cache é salvo imediatamente depois da compilação, mesmo se o DVIP ou a expo
 O workflow separado `testar-cache-mesa-dvip.yml` verifica gravação num runner e restauração em outro, identidade da imagem e quatro buffers reais. Não utiliza o segredo do Resolve nem baixa o instalador. Commits marcados `[mesa-cache-only]` acionam esse teste sem iniciar uma nova tentativa pesada do aplicativo; o workflow manual original continua disponível.
 
 Validação real do cache: [RESULTADO-CACHE.md](RESULTADO-CACHE.md). Gravação e restauração entre runners e execuções passaram; carga medida em 45–61 segundos. Avanço nativo GLX: [RESULTADO-GLX-INTERFACE.md](RESULTADO-GLX-INTERFACE.md). Exportação pelo Resolve ainda não comprovada.
+
+## Entrada privada e cache ampliado (experimental)
+
+O cache agora guarda a imagem completa de dependências livres, incluindo Mesa e ferramentas. Em cache hit, não baixa também a imagem Mesa separada; copia apenas os scripts atuais. Em cache miss, recupera o cache Mesa anterior antes de instalar dependências adicionais. Não inclui DaVinci, instaladores, licença, credenciais ou caches de kernels proprietários.
+
+A tentativa GLX invoca apenas `CodexSyntheticSmoke` pelo menu oficial Workspace → Scripts, quando seus rótulos são reconhecidos. Nunca aceita licença ou faz login. O teste sintético tem áudio, projeto, timeline, zoom estático 1.06 e consulta os codecs reais. Se H.264 MP4 não estiver disponível, tenta DNxHR MOV anunciado pelo editor e registra separadamente a conversão auxiliar do render nativo para H.264/AAC. FFmpeg não gera a timeline ou substitui a renderização do Resolve. Sem render nativo e FFprobe, o workflow falha. O estilo completo de emo rap continua pendente.
+
+Para disponibilizar seu vídeo ao runner sem publicar seu link ou um MP4 em claro, configure no navegador Android, em **Settings → Secrets and variables → Actions → New repository secret**:
+
+- `DAVINCI_INPUT_VIDEO_URL`: o link do arquivo no Google Drive, com acesso suficiente para download pelo runner. Não automatizamos login do Google.
+- `DAVINCI_MEDIA_PASSWORD`: uma senha/frase particular de pelo menos 16 caracteres. Nunca cole essa senha em chat, código, comentários ou issues. Ela também será usada para abrir o resultado no celular.
+
+O segredo já existente `DAVINCI_RESOLVE_LINUX_URL` continua necessário e deve conter uma URL oficial válida. Não afirmamos que os dois novos segredos estejam configurados: só o preflight da execução solicitada pode confirmar.
+
+Em Actions → `testar-mesa-software-sharing.yml` → Run workflow, selecione a branch experimental e marque **private_media**. O fluxo privado prepara **45–60 segundos**, 15 segundos finais, 540×960, 30 FPS, com áudio original convertido para PCM na entrada. A imagem original é ajustada com barras pretas, sem cortar seu enquadramento. O Resolve deverá importar, criar timeline, aplicar zoom e renderizar; ainda é um teste de edição básica, não um lyric edit final.
+
+O cache de mídia só recebe `prepared.dvi`, cifrado com AES-256-GCM e chave derivada por PBKDF2-SHA256 (600 mil iterações, sal e nonce aleatórios). A chave de cache é um HMAC que muda com conteúdo, senha e receita de preparação; não é o link, senha ou SHA público do vídeo. O cache é salvo antes da tentativa de render, podendo acelerar retries mesmo quando o aplicativo falhar. Nunca inclui mídia em claro. Sem a senha correta ou com arquivo alterado, a abertura falha antes de importar no editor.
+
+No modo privado, artefatos não recebem screenshots, logs internos, projetos ou MP4 em claro. Após validar o render, o resultado é cifrado em `final.dvr`; mídia temporária e capturas são removidas. O artefato `meu-edit-davinci-protegido` contém o arquivo protegido, resumo sem mídia e `decrypt.html`. Se o render falhar, pode existir só resumo/HTML; isso não é um vídeo pronto.
+
+No Moto G22: baixe o artefato, extraia o ZIP e abra `decrypt.html` num navegador compatível. Escolha `final.dvr`, digite a mesma senha e toque **Baixar MP4**. O processamento de abertura ocorre no aparelho, sem enviar senha/vídeo a um servidor. O utilitário aceita resultados até 100 MiB e foi validado com WebCrypto em Node; ainda não foi testado no seu Motorola. Alguns visualizadores HTML do Android não disponibilizam WebCrypto. Nesse caso, abra no Chrome em contexto seguro, ou publique apenas este HTML público via GitHub Pages (Settings → Pages; branch experimental, raiz) e use o endereço HTTPS do arquivo. Não publique a senha ou o vídeo na pasta de Pages. Essa configuração não foi realizada automaticamente.
+
+O cache não conserva desktop, instalação ou sessão autenticada. Projetos e caches proprietários do DVIP não são guardados. As execuções ainda precisam iniciar o aplicativo e carregar kernels pela CPU. O pipeline privado foi preparado; sua renderização real continua condicionada à execução do editor e aos novos segredos.

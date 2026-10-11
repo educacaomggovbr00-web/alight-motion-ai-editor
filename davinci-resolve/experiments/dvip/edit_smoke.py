@@ -13,7 +13,7 @@ def choose_render(project):
     candidate=next((v for k,v in candidates if 'lb' in k.lower()),candidates[0][1] if candidates else None)
     return (('mov',candidate) if candidate else None),{'renderFormats':formats,'mp4Codecs':mp4,'movCodecs':mov}
 
-def exercise(resolve,video,output,render_seconds=180):
+def exercise(resolve,video,output,render_seconds=180,width=640,height=360):
     r={'state':'bloqueado','apiConnected':False,'projectCreated':False,'mediaImported':False,'timelineCreated':False,'effectApplied':False,'exportProven':False}
     def checkpoint():
         (output/'sdk-progress.json').write_text(json.dumps(r,ensure_ascii=False,indent=2)+'\n')
@@ -25,7 +25,7 @@ def exercise(resolve,video,output,render_seconds=180):
     pm=resolve.GetProjectManager();project=pm.CreateProject('Codex_Synthetic_'+uuid.uuid4().hex[:12])
     if not project:r['reason']='CreateProject não criou projeto.';return r
     r['projectCreated']=True;checkpoint()
-    if not project.SetSettings({'timelineFrameRate':'30','timelineResolutionWidth':'640','timelineResolutionHeight':'360'}):
+    if not project.SetSettings({'timelineFrameRate':'30','timelineResolutionWidth':str(width),'timelineResolutionHeight':str(height)}):
         r['reason']='Configuração de timeline recusada.';return r
     pool=project.GetMediaPool();clips=pool.ImportMedia([str(video)])
     if not clips:r['reason']='ImportMedia não importou mídia sintética.';return r
@@ -46,7 +46,7 @@ def exercise(resolve,video,output,render_seconds=180):
     fmt,codec=chosen;r.update(nativeFormat=fmt,nativeCodec=codec)
     if not project.SetCurrentRenderFormatAndCodec(fmt,codec):r['reason']='Seleção do codec nativo recusada.';return r
     project.SetCurrentRenderMode(1)
-    settings={'TargetDir':str(output),'CustomName':'resolve-synthetic','SelectAllFrames':True,'ExportVideo':True,'ExportAudio':True,'FormatWidth':640,'FormatHeight':360,'FrameRate':30}
+    settings={'TargetDir':str(output),'CustomName':'resolve-synthetic','SelectAllFrames':True,'ExportVideo':True,'ExportAudio':True,'FormatWidth':width,'FormatHeight':height,'FrameRate':30}
     if fmt=='mov':settings.update(AudioBitDepth=16,AudioSampleRate=48000)
     if not project.SetRenderSettings(settings):r['reason']='SetRenderSettings recusado.';return r
     job=project.AddRenderJob();r['renderJobId']=job;checkpoint()
@@ -73,7 +73,7 @@ def main():
         if app is None:
             import DaVinciResolveScript as sdk
             app=sdk.scriptapp('Resolve')
-        result=exercise(app,video,out)
+        result=exercise(app,video,out,width=int(os.environ.get('CODEX_WIDTH','640')),height=int(os.environ.get('CODEX_HEIGHT','360')))
     except Exception as exc:
         partial=out/'sdk-progress.json'
         if partial.exists():result=json.loads(partial.read_text())

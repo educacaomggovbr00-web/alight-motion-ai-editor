@@ -2,6 +2,11 @@
 name: DaVinci — DVIP original 21.1.1 por CPU (experimental)
 on:
   workflow_dispatch:
+    inputs:
+      private_media:
+        description: 'Usar vídeo privado dos segredos (45–60 s; saída protegida por senha)'
+        type: boolean
+        default: false
   push:
     branches: ['experiment/davinci-21-1-1-software-dvip']
     paths:
@@ -20,4 +25,6 @@ jobs:
   experiment:
     if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[mesa-cache-only]')
     uses: ./.github/workflows/experimentar-davinci-dvip.yml
+    with:
+      private_media: ${{ github.event_name == 'workflow_dispatch' && inputs.private_media }}
     secrets: inherit

@@ -1,8 +1,16 @@
 name: DaVinci 21.1.1 — experimento DVIP isolado
 on:
   workflow_call:
+    inputs:
+      private_media:
+        type: boolean
+        default: false
     secrets:
       DAVINCI_RESOLVE_LINUX_URL:
+        required: false
+      DAVINCI_INPUT_VIDEO_URL:
+        required: false
+      DAVINCI_MEDIA_PASSWORD:
         required: false
 permissions:
   contents: read
@@ -32,6 +40,12 @@ jobs:
           else
             echo 'available=false' >> "$GITHUB_OUTPUT"
           fi
+      - name: Conferir somente configuração privada quando solicitada
+        if: inputs.private_media
+        env:
+          DAVINCI_INPUT_VIDEO_URL: ${{ secrets.DAVINCI_INPUT_VIDEO_URL }}
+          DAVINCI_MEDIA_PASSWORD: ${{ secrets.DAVINCI_MEDIA_PASSWORD }}
+        run: python3 davinci-resolve/experiments/dvip/private_input.py availability --private-dir "$RUNNER_TEMP/davinci-user"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -104,6 +118,63 @@ jobs:
           if len(probes)!=4 or not all(verified(p) for p in probes):
               raise SystemExit('Gate bloqueado: quatro buffers não passaram. Download do Resolve não iniciado.')
           PYCODE
+      - name: Baixar entrada privada e calcular chave opaca para cache cifrado
+        if: inputs.private_media
+        id: private-key
+        timeout-minutes: 4
+        env:
+          DAVINCI_INPUT_VIDEO_URL: ${{ secrets.DAVINCI_INPUT_VIDEO_URL }}
+          DAVINCI_MEDIA_PASSWORD: ${{ secrets.DAVINCI_MEDIA_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 davinci-resolve/experiments/dvip/private_input.py download --private-dir "$RUNNER_TEMP/davinci-user"
+          recipe="45:15:540:960:30:dnxhr_lb:pcm48k:$(sha256sum davinci-resolve/experiments/dvip/prepare_private_input.py | cut -d' ' -f1)"
+          key=$(docker run --rm --user "$(id -u):$(id -g)" --memory=1g --ulimit core=0 \
+            -e DAVINCI_MEDIA_PASSWORD -v "$RUNNER_TEMP/davinci-user:/private" \
+            -v "$PWD/davinci-resolve/experiments/dvip:/scripts:ro" codex-resolve-deps \
+            python3 /scripts/private_crypto.py cache-key --input /private/input-original.mp4 --recipe "$recipe")
+          [[ "$key" =~ ^dvr-input-private-v1-[a-f0-9]{64}$ ]] || { echo 'Chave de cache privado inválida.'; exit 2; }
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+      - name: Restaurar somente entrada já cifrada (nenhum vídeo em claro no cache)
+        if: inputs.private_media
+        id: private-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/davinci-input-cache
+          key: ${{ steps.private-key.outputs.key }}
+      - name: Preparar ou abrir entrada privada autenticada
+        if: inputs.private_media
+        env:
+          DAVINCI_MEDIA_PASSWORD: ${{ secrets.DAVINCI_MEDIA_PASSWORD }}
+          INPUT_CACHE_HIT: ${{ steps.private-cache.outputs.cache-hit }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/davinci-input-cache"
+          if [[ "$INPUT_CACHE_HIT" == true ]]; then
+            docker run --rm --user "$(id -u):$(id -g)" --memory=1g --ulimit core=0 \
+              -e DAVINCI_MEDIA_PASSWORD -v "$RUNNER_TEMP/davinci-user:/private" \
+              -v "$RUNNER_TEMP/davinci-input-cache:/encrypted:ro" \
+              -v "$PWD/davinci-resolve/experiments/dvip:/scripts:ro" codex-resolve-deps \
+              python3 /scripts/private_crypto.py decrypt --kind input --input /encrypted/prepared.dvi --output /private/prepared/input-prepared.mov
+          else
+            docker run --rm --user "$(id -u):$(id -g)" --memory=1g --cpus=2 --ulimit core=0 \
+              -v "$RUNNER_TEMP/davinci-user:/private" \
+              -v "$PWD/davinci-resolve/experiments/dvip:/scripts:ro" codex-resolve-deps \
+              python3 /scripts/prepare_private_input.py --input /private/input-original.mp4 --private-dir /private/prepared --start 45 --duration 15
+            docker run --rm --user "$(id -u):$(id -g)" --memory=1g --ulimit core=0 \
+              -e DAVINCI_MEDIA_PASSWORD -v "$RUNNER_TEMP/davinci-user:/private:ro" \
+              -v "$RUNNER_TEMP/davinci-input-cache:/encrypted" \
+              -v "$PWD/davinci-resolve/experiments/dvip:/scripts:ro" codex-resolve-deps \
+              python3 /scripts/private_crypto.py encrypt --kind input --input /private/prepared/input-prepared.mov --output /encrypted/prepared.dvi
+          fi
+      - name: Salvar somente entrada cifrada, antes da tentativa do Resolve
+        if: inputs.private_media && steps.private-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/davinci-input-cache
+          key: ${{ steps.private-key.outputs.key }}
       - name: Obter somente o instalador oficial privado e conferir SHA-256 conhecido
         timeout-minutes: 12
         env:
@@ -122,27 +193,62 @@ jobs:
           set -euo pipefail
           probe_name="davinci-original-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           trap 'docker rm -f "$probe_name" >/dev/null 2>&1 || true' EXIT
+          extra=()
+          native_args=()
+          if [[ '${{ inputs.private_media }}' == true ]]; then
+            extra=(-v "$RUNNER_TEMP/davinci-user/prepared:/input:ro")
+            native_args=(--input-video /input/input-prepared.mov --width 540 --height 960 --duration 15)
+          fi
           for profile in glx; do
             mkdir -p "dvip-output/$profile"
             set +e
             timeout --kill-after=5s 600s docker run --rm --name "$probe_name" --memory=6g --cpus=2 --ulimit core=0 \
-              --device /dev/udmabuf \
+              --device /dev/udmabuf "${extra[@]}" \
               -v "$RUNNER_TEMP/davinci-private/squashfs-root:/opt/resolve" \
               -v "$RUNNER_TEMP/davinci-private/squashfs-root/bin:/opt/resolve/bin:ro" \
               -v "$RUNNER_TEMP/davinci-private/squashfs-root/libs:/opt/resolve/libs:ro" \
               -v "$PWD/dvip-output/$profile:/output" \
               codex-resolve-dvip python3 /experiment/dvip/supervise.py \
-              --resolve-root /opt/resolve --output /output --backend "$profile"
+              --resolve-root /opt/resolve --output /output --backend "$profile" \
+              "${native_args[@]}"
             code=$?
             set -e
             printf '%s\n' "$code" > "dvip-output/$profile/container-exit-code.txt"
             docker rm -f "$probe_name" >/dev/null 2>&1 || true
           done
+      - name: Proteger resultado pessoal antes de qualquer publicação
+        if: always() && inputs.private_media
+        env:
+          DAVINCI_MEDIA_PASSWORD: ${{ secrets.DAVINCI_MEDIA_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/private-delivery"
+          python3 - <<'PYREPORT'
+          import json, os
+          from pathlib import Path
+          p=Path('dvip-output/glx/result.json')
+          report=json.loads(p.read_text()) if p.exists() else {}
+          public={k:report.get(k,False) for k in ['nativeRenderProven','nativeMp4ExportProven','mp4DeliveryValidated']}
+          public['plaintextPublished']=False
+          public['mediaInputCachedInClear']=False
+          Path(os.environ['RUNNER_TEMP'],'private-delivery','result-public.json').write_text(json.dumps(public,indent=2))
+          PYREPORT
+          if [[ -f dvip-output/glx/render/final-delivery.mp4 ]] && python3 -c 'import json; from pathlib import Path; r=json.loads(Path("dvip-output/glx/result.json").read_text()); raise SystemExit(0 if r.get("nativeRenderProven") and r.get("mp4DeliveryValidated") else 2)'; then
+            docker run --rm --memory=1g --ulimit core=0 -e DAVINCI_MEDIA_PASSWORD \
+              -v "$PWD/dvip-output/glx/render:/render:ro" -v "$RUNNER_TEMP/private-delivery:/encrypted" \
+              -v "$PWD/davinci-resolve/experiments/dvip:/scripts:ro" codex-resolve-deps \
+              python3 /scripts/private_crypto.py encrypt --kind delivery --input /render/final-delivery.mp4 --output /encrypted/final.dvr
+            sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/private-delivery"
+          fi
       - name: Limpar somente arquivos proprietarios temporarios deste experimento
         if: always()
-        run: sudo rm -rf -- "$RUNNER_TEMP/davinci-private"
+        run: sudo rm -rf -- "$RUNNER_TEMP/davinci-private" "$RUNNER_TEMP/davinci-user" "$RUNNER_TEMP/davinci-input-cache"
+      - name: Remover arquivos de mídia pessoal em claro após proteger a entrega
+        if: always() && inputs.private_media
+        run: sudo rm -rf -- "$PWD/dvip-output/glx"
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && !inputs.private_media
         with:
           name: davinci-original-dvip-evidence
           path: |
@@ -166,12 +272,25 @@ jobs:
             dvip-output/egl/render/*.mp4
           retention-days: 7
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always() && inputs.private_media
+        with:
+          name: meu-edit-davinci-protegido
+          path: |
+            ${{ runner.temp }}/private-delivery/final.dvr
+            ${{ runner.temp }}/private-delivery/result-public.json
+            davinci-resolve/experiments/dvip/mobile/decrypt.html
+          retention-days: 7
+          if-no-files-found: error
       - name: Exigir render nativo real e MP4 final validado; origem da embalagem explícita
         run: |
           python3 - <<'PY'
           import json, os
           from pathlib import Path
-          reports=[json.loads(p.read_text()) for p in Path('dvip-output').glob('*/result.json')]
+          paths=list(Path('dvip-output').glob('*/result.json'))
+          private=Path(os.environ['RUNNER_TEMP'],'private-delivery','result-public.json')
+          if private.exists():paths.append(private)
+          reports=[json.loads(p.read_text()) for p in paths]
           passed=any(r.get('nativeRenderProven') is True and r.get('mp4DeliveryValidated') is True for r in reports)
           msg='Render nativo e MP4 final validados: '+str(passed)+'. MP4 direto pelo Resolve e conversão auxiliar após MOV têm estados separados no relatório.'
           print(msg)

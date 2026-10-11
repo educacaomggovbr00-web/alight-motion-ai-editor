@@ -1,0 +1,34 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Abrir meu edit DaVinci</title><style>body{margin:0;background:#14121b;color:#f7f4ff;font:18px system-ui}main{max-width:520px;margin:auto;padding:28px 20px}h1{font-size:28px}label{display:block;margin:24px 0 8px}input,button,a{box-sizing:border-box;width:100%;padding:14px;border-radius:10px;font:inherit}input{background:#241f30;color:white;border:1px solid #746282}button,a{background:#ae8cff;color:#140d22;border:0;margin-top:24px}a{display:block;text-align:center;text-decoration:none}a[hidden]{display:none}p{line-height:1.5}small{color:#c7bdd9}</style></head><body><main><h1>Abrir meu edit DaVinci</h1><p>Selecione o resultado protegido baixado do GitHub. O vídeo é aberto neste navegador; a página não envia sua senha ou mídia.</p><form id="open-form"><label for="file">Arquivo final.dvr</label><input id="file" type="file" accept=".dvr" required><label for="password">Senha configurada no GitHub</label><input id="password" type="password" autocomplete="off" required><button id="open" type="submit">Abrir vídeo</button></form><p id="status" role="status" aria-live="polite"></p><a id="download" hidden>Baixar MP4</a><small>A senha fica no segredo DAVINCI_MEDIA_PASSWORD. Nunca a publique no repositório.</small></main><script>async function decryptBytes(buffer, password) {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.byteLength <= 52 || bytes.byteLength > 100 * 1024 * 1024 + 52) throw new Error('Arquivo inválido ou maior que 100 MiB.');
+  if (new TextDecoder().decode(bytes.slice(0, 4)) !== 'DVR1') throw new Error('Este arquivo não é um resultado de vídeo protegido.');
+  const iterations = new DataView(bytes.buffer, bytes.byteOffset + 32, 4).getUint32(0, false);
+  if (iterations !== 600000) throw new Error('Formato de proteção não reconhecido.');
+  if (!globalThis.crypto?.subtle) throw new Error('Abra esta página num contexto seguro (HTTPS ou arquivo local compatível).');
+  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({name: 'PBKDF2', salt: bytes.slice(4, 20), iterations, hash: 'SHA-256'}, material, {name: 'AES-GCM', length: 256}, false, ['decrypt']);
+  let plain;
+  try { plain = await crypto.subtle.decrypt({name: 'AES-GCM', iv: bytes.slice(20, 32), additionalData: bytes.slice(0, 36), tagLength: 128}, key, bytes.slice(36)); }
+  catch { throw new Error('Senha incorreta ou arquivo alterado.'); }
+  return {data: plain, mime: 'video/mp4', filename: 'meu-edit-davinci.mp4'};
+}
+if (typeof document !== 'undefined') {
+  const form = document.getElementById('open-form'), status = document.getElementById('status');
+  let previousUrl;
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const file = document.getElementById('file').files[0], password = document.getElementById('password');
+    const button = document.getElementById('open'), link = document.getElementById('download');
+    if (!file) { status.textContent = 'Selecione o arquivo final.dvr.'; return; }
+    button.disabled = true; link.hidden = true; status.textContent = 'Abrindo o vídeo neste aparelho…';
+    try {
+      const result = await decryptBytes(await file.arrayBuffer(), password.value);
+      if (previousUrl) URL.revokeObjectURL(previousUrl);
+      previousUrl = URL.createObjectURL(new Blob([result.data], {type: result.mime}));
+      link.href = previousUrl; link.download = result.filename; link.hidden = false;
+      status.textContent = 'Arquivo validado. Toque em Baixar MP4.';
+    } catch (error) { status.textContent = error.message; }
+    finally { password.value = ''; button.disabled = false; }
+  });
+}
+</script></body></html>

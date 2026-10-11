@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Bounded original-app experiment: independent GL gate, UI, SDK, ffprobe."""
-import argparse, hashlib, json, os, re, resource, signal, subprocess, sys, tempfile, time, shutil
+import argparse, hashlib, json, os, re, resource, signal, subprocess, sys, tempfile, time, shutil, math
 from internal_menu import invoke as invoke_internal_script
 from pathlib import Path
 from source import BINARY_SHA256, digest
@@ -17,7 +17,7 @@ def verified(report):
         for d in report.get('devices',[])))
 
 def clean_env(env):
-    blocked=('TOKEN','SECRET','PASSWORD','API_KEY','DOWNLOAD_URL','LINUX_URL')
+    blocked=('TOKEN','SECRET','PASSWORD','API_KEY','DOWNLOAD_URL','LINUX_URL','VIDEO_URL')
     return {k:v for k,v in env.items() if not any(part in k.upper() for part in blocked) and not k.startswith('GITHUB_')}
 
 def stop(p):
@@ -42,24 +42,24 @@ def bounded(argv, env, seconds, output=None):
         if output:Path(output).write_text(text)
         return {'exitCode':p.returncode,'timeLimitReached':timed},text
 
-def validate_mp4(path):
+def validate_mp4(path,width=640,height=360,expected_duration=3):
     p=subprocess.run(['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(path)],capture_output=True,text=True,timeout=15)
     if p.returncode:raise ValueError('FFprobe não leu o MP4.')
     data=json.loads(p.stdout);video=next((s for s in data['streams'] if s['codec_type']=='video'),{})
     rate=video.get('avg_frame_rate','0/1');n,d=rate.split('/');fps=float(n)/float(d)
     duration=float(data['format']['duration'])
     audio=next((s for s in data['streams'] if s['codec_type']=='audio'),{})
-    if not (video.get('codec_name')=='h264' and video.get('width')==640 and video.get('height')==360 and abs(fps-30)<.001 and abs(duration-3)<.25 and audio.get('codec_name')=='aac'):
-        raise ValueError('MP4 não atende H.264/AAC, 640×360, 30 FPS e 3 segundos.')
+    if not (video.get('codec_name')=='h264' and video.get('width')==width and video.get('height')==height and abs(fps-30)<.001 and abs(duration-expected_duration)<.25 and audio.get('codec_name')=='aac'):
+        raise ValueError('MP4 não atende codecs, resolução, FPS e duração solicitados.')
     return data
 
-def validate_native(path, fmt):
+def validate_native(path,fmt,width=640,height=360,expected_duration=3):
     p=subprocess.run(['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(path)],capture_output=True,text=True,timeout=15)
     if p.returncode:raise ValueError('Render nativo não legível.')
     data=json.loads(p.stdout);video=next((s for s in data['streams'] if s['codec_type']=='video'),{});audio=next((s for s in data['streams'] if s['codec_type']=='audio'),{})
     n,d=video.get('avg_frame_rate','0/1').split('/');rate=float(n)/float(d)
     allowed=('h264',) if fmt=='mp4' else ('dnxhd',)
-    if video.get('codec_name') not in allowed or video.get('width')!=640 or video.get('height')!=360 or abs(rate-30)>.001 or abs(float(data['format']['duration'])-3)>.25 or not audio:
+    if video.get('codec_name') not in allowed or video.get('width')!=width or video.get('height')!=height or abs(rate-30)>.001 or abs(float(data['format']['duration'])-expected_duration)>.25 or not audio:
         raise ValueError('Render nativo fora da especificação de vídeo/áudio.')
     return data
 
@@ -104,7 +104,8 @@ def advance_onboarding(output, env):
     return steps
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--resolve-root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--backend',choices=['glx','egl'],required=True);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--resolve-root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--backend',choices=['glx','egl'],required=True);p.add_argument('--input-video',type=Path);p.add_argument('--width',type=int,default=640);p.add_argument('--height',type=int,default=360);p.add_argument('--duration',type=float,default=3);a=p.parse_args()
+    if (a.width,a.height) not in ((640,360),(540,960)) or not math.isfinite(a.duration) or not 1<=a.duration<=30:p.error('Formato/duração fora dos limites.')
     a.output.mkdir(parents=True,exist_ok=True);result={'state':'bloqueado','profile':a.backend,'resolveStarted':False,'glSharingPassed':False,'uiFunctionalProven':False,'dvipInitializationConfirmed':False,'projectCreated':False,'mediaImported':False,'timelineCreated':False,'exportProven':False,'nativeRenderProven':False,'nativeMp4ExportProven':False,'mp4DeliveryValidated':False}
     resource.setrlimit(resource.RLIMIT_CORE,(0,0))
     env=clean_env(os.environ);x=app=None
@@ -148,11 +149,16 @@ def main():
         _,plugins=bounded(['ldd',str(a.resolve_root/'libs/plugins/platforms/libqxcb.so')],env,15,a.output/'qt-plugin-dependencies.log')
         missing=[l for l in (ldd+'\n'+plugins).splitlines() if 'not found' in l]
         if missing:result['reason']='Bibliotecas necessárias ausentes.';result['missingLibraries']=missing;return 2
-        synthetic=a.output/'synthetic.mov'
-        status,_=bounded(['ffmpeg','-y','-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=30','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','3','-c:a','pcm_s16le','-c:v','dnxhd','-profile:v','dnxhr_lb','-pix_fmt','yuv422p',str(synthetic)],env,30,a.output/'synthetic.log')
-        if status['exitCode'] or not synthetic.exists():raise RuntimeError('Mídia sintética DNxHR não foi gerada.')
+        synthetic=a.input_video if a.input_video is not None else a.output/'synthetic.mov'
+        if a.input_video is None:
+            status,_=bounded(['ffmpeg','-y','-v','error','-f','lavfi','-i','testsrc2=size='+str(a.width)+'x'+str(a.height)+':rate=30','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t',str(a.duration),'-c:a','pcm_s16le','-c:v','dnxhd','-profile:v','dnxhr_lb','-pix_fmt','yuv422p',str(synthetic)],env,30,a.output/'synthetic.log')
+            if status['exitCode'] or not synthetic.exists():raise RuntimeError('Mídia sintética DNxHR/PCM não foi gerada.')
+        else:
+            if not synthetic.is_file() or synthetic.stat().st_size>250*1024**2:raise ValueError('Entrada privada preparada ausente ou muito grande.')
+            validate_native(synthetic,'mov',a.width,a.height,a.duration)
+        result['inputKind']='private' if a.input_video is not None else 'synthetic'
         render=a.output/'render';render.mkdir(exist_ok=True)
-        env.update(CODEX_SYNTHETIC_VIDEO=str(synthetic),CODEX_RENDER_OUTPUT=str(render))
+        env.update(CODEX_SYNTHETIC_VIDEO=str(synthetic),CODEX_RENDER_OUTPUT=str(render),CODEX_WIDTH=str(a.width),CODEX_HEIGHT=str(a.height),CODEX_DURATION=str(a.duration),CODEX_MEDIA_PRIVATE='1' if a.input_video is not None else '0')
         # Make the same script available through the documented internal Scripts menu.
         utility=Path.home()/'.local/share/DaVinciResolve/Fusion/Scripts/Utility';utility.mkdir(parents=True,exist_ok=True)
         (utility/'CodexSyntheticSmoke.py').write_text((Path(__file__).parent/'edit_smoke.py').read_text())
@@ -207,17 +213,17 @@ def main():
                             fmt=r.get('nativeFormat');filename=r.get('nativeFileName')
                             if fmt not in ('mov','mp4') or filename!='resolve-synthetic.'+fmt:raise ValueError('Caminho nativo inesperado.')
                             native=render/filename
-                            metadata=validate_native(native,fmt);(a.output/'ffprobe-native.json').write_text(json.dumps(metadata,indent=2)+'\n')
+                            metadata=validate_native(native,fmt,a.width,a.height,a.duration);(a.output/'ffprobe-native.json').write_text(json.dumps(metadata,indent=2)+'\n')
                             result.update(nativeRenderProven=True,nativeRenderSha256=digest(native),dvipInitializationConfirmed=True,uiFunctionalProven=True)
                             final=render/'final-delivery.mp4'
                             if fmt=='mp4':
                                 shutil.copyfile(native,final)
-                                validate_mp4(final);result.update(nativeMp4ExportProven=True,exportProven=True,mp4Packaging='Resolve original')
+                                validate_mp4(final,a.width,a.height,a.duration);result.update(nativeMp4ExportProven=True,exportProven=True,mp4Packaging='Resolve original')
                             else:
                                 status,_=bounded(['ffmpeg','-y','-v','error','-i',str(native),'-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-movflags','+faststart',str(final)],desktop_env,40,a.output/'mp4-packaging.log')
                                 if status['exitCode']:raise ValueError('Embalagem MP4 auxiliar falhou.')
                                 result['mp4Packaging']='FFmpeg auxiliar após render DNxHR MOV do Resolve; não é MP4 exportado diretamente pelo Resolve'
-                            final_metadata=validate_mp4(final);(a.output/'ffprobe.json').write_text(json.dumps(final_metadata,indent=2)+'\n')
+                            final_metadata=validate_mp4(final,a.width,a.height,a.duration);(a.output/'ffprobe.json').write_text(json.dumps(final_metadata,indent=2)+'\n')
                             result.update(mp4DeliveryValidated=True,state='testado')
                         except (OSError,ValueError,subprocess.TimeoutExpired) as exc:result['validationError']=type(exc).__name__
                 bounded(['import','-window','root',str(a.output/'screen-after-sdk.png')],desktop_env,15)
