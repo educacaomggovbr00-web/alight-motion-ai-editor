@@ -66,7 +66,7 @@ class GeminiSubtitleTests(unittest.TestCase):
         class Interactions:
             def create(self, *, model, input, response_format):
                 self.assertion= (model==trans.MODEL and input[1]["uri"]==uploaded.uri
-                                 and response_format==trans.SCHEMA)
+                                 and response_format=={'type':'text','mime_type':'application/json','schema':trans.SCHEMA})
                 calls["sent"]+=1
                 return types.SimpleNamespace(output_text='{"language":"en","segments":[]}')
         class Client:
