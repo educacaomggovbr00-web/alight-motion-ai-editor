@@ -68,6 +68,17 @@ def advance_onboarding(output, env):
         rows=[line.split('\t') for line in tsv.splitlines()[1:]]
         words=[r for r in rows if len(r)>=12 and r[11].strip()]
         text=' '.join(r[11] for r in words)
+        # Verified 1280x720 introduction layout: OCR the enclosed Continue label separately.
+        if "what's new in davinci resolve" in text.lower() and 'continue' not in text.lower():
+            crop=output/f'onboarding-footer-{index}.png'
+            status,_=bounded(['convert',str(screen),'-crop','110x25+670+584','+repage','-resize','400%','-negate',str(crop)],env,10)
+            if status['exitCode']==0:
+                _,footer=bounded(['tesseract',str(crop),'stdout','--psm','7','tsv'],env,15,output/f'onboarding-footer-{index}.log')
+                for row in [l.split('\t') for l in footer.splitlines()[1:]]:
+                    if len(row)>=12 and row[11].strip().lower()=='continue':
+                        row[6]=str(670+int(row[6])//4);row[7]=str(584+int(row[7])//4)
+                        row[8]=str(int(row[8])//4);row[9]=str(int(row[9])//4)
+                        words.append(row);text+=' '+row[11]
         button=onboarding_button(text)
         if button is None:break
         match=next((r for r in words if r[11].lower().startswith(button)),None)
