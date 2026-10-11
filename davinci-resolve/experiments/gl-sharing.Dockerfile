@@ -13,3 +13,4 @@ ENV LIBGL_ALWAYS_SOFTWARE=1 RUSTICL_ENABLE=llvmpipe,zink GALLIUM_DRIVER=zink MES
 WORKDIR /experiment
 COPY gl-sharing-probe.py /experiment/gl-sharing-probe.py
 COPY vulkan-dmabuf-probe.py /experiment/vulkan-dmabuf-probe.py
+COPY run-gl-sharing-matrix.py /experiment/run-gl-sharing-matrix.py

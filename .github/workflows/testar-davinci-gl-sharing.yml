@@ -7,6 +7,7 @@ on:
       - 'davinci-resolve/experiments/gl-sharing-probe.py'
       - 'davinci-resolve/experiments/gl-sharing.Dockerfile'
       - 'davinci-resolve/experiments/vulkan-dmabuf-probe.py'
+      - 'davinci-resolve/experiments/run-gl-sharing-matrix.py'
 permissions:
   contents: read
 jobs:
@@ -70,30 +71,10 @@ jobs:
               fi
               device_args+=(--device /dev/udmabuf)
             fi
-            timeout --kill-after=5s 45s docker run --rm --name "$probe_name" --memory=4g --cpus=2 "${device_args[@]}" \
-              -v "$PWD/gl-sharing-output:/output" codex-gl-sharing \
-              python3 /experiment/vulkan-dmabuf-probe.py \
-              --output "/output/$mode-vulkan-dmabuf.json"
-            timeout --kill-after=5s 45s docker run --rm --name "$probe_name" --memory=4g --cpus=2 "${device_args[@]}" \
-              -e RUSTICL_DEVICE_TYPE=gpu -v "$PWD/gl-sharing-output:/output" codex-gl-sharing \
-              sh -c 'dpkg-query -W mesa-opencl-icd mesa-vulkan-drivers libgl1-mesa-dri > /output/mesa-versions.txt; clinfo > /output/clinfo.txt 2>&1; vulkaninfo --summary > /output/vulkan-summary.txt 2>&1'
-            for device_type in native advertised-gpu; do
-              type_args=()
-              if [[ "$device_type" == advertised-gpu ]]; then
-                type_args+=(-e RUSTICL_DEVICE_TYPE=gpu)
-              fi
-              for backend in glx egl; do
-                timeout --kill-after=5s 75s docker run --rm --name "$probe_name" --memory=4g --cpus=2 "${device_args[@]}" "${type_args[@]}" \
-                  -v "$PWD/gl-sharing-output:/output" codex-gl-sharing \
-                  xvfb-run -a -s '-screen 0 1280x720x24 -nolisten tcp' \
-                  python3 /experiment/gl-sharing-probe.py --backend "$backend" \
-                  --output "/output/$mode-$device_type-$backend.json"
-              done
-            done
-            timeout --kill-after=5s 75s docker run --rm --name "$probe_name" --memory=4g --cpus=2 "${device_args[@]}" \
-              -e RUSTICL_DEVICE_TYPE=gpu -v "$PWD/davinci-resolve:/legacy:ro" codex-gl-sharing \
-              xvfb-run -a -s '-screen 0 1280x720x24 -nolisten tcp' \
-              python3 /legacy/probe-gl-opencl.py > "gl-sharing-output/$mode-legacy.json"
+            timeout --kill-after=5s 240s docker run --rm --name "$probe_name" --memory=4g --cpus=2 "${device_args[@]}" \
+              -v "$PWD/gl-sharing-output:/output" -v "$PWD/davinci-resolve:/legacy:ro" codex-gl-sharing \
+              python3 /experiment/run-gl-sharing-matrix.py --output /output --label "$mode" \
+              --legacy /legacy/probe-gl-opencl.py
           done
       - uses: actions/upload-artifact@v4
         if: always()
