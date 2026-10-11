@@ -4,6 +4,18 @@ Editor de lyric edits verticais em React/TypeScript, renderizado **pelo Remotion
 
 **Render real comprovado no GitHub Actions:** [execução aprovada](https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38097819260) e [MP4s de demonstração](https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38097819260/artifacts/11686472563). Três presets testados em 540×960/30 FPS; mídia real e 720p/1080p ainda não foram renderizados neste teste.
 
+## Usar no GitHub o video de 45 a 60 segundos (Moto G22)
+
+Para um clipe **ja recortado** em 15 segundos, com trilha sonora dentro do MP4:
+
+1. Baixe o pacote `entrada_github_remotion.zip` preparado com `artist.mp4`, `beats.json` e `lyrics.json`. As palavras no pacote sao **texto artistico de exemplo**, nao transcricao da musica; os impactos sao estimativas de energia do audio.
+2. **Atencao: este repositorio e PUBLICO.** Enviar `entrada.zip` a ele divulga video, audio e textos e o conteudo pode permanecer no historico Git. So continue com arquivo que voce tenha direito de publicar; para material privado use copia privada do repositorio e `secret-zip`.
+3. No navegador Android, abra [`remotion-emo-rap/importar/`](importar/), toque em **Add file → Upload files**, envie o ZIP renomeado exatamente `entrada.zip` e confirme o commit.
+4. Abra [Actions → Editar Emo Rap — Remotion](../../actions/workflows/editar-remotion.yml). Selecione branch main, `entrada=repo-zip`, `preset=big-text-impact`, `intensidade=medio`, `resolucao=540`, `duracao=15`, `reduzir_flashes=true` e **`permitir_resultado_publico=true` somente se tiver autorizacao para divulgar a midia e seu resultado**.
+5. Toque em Run workflow e baixe o artefato `meu-edit-remotion` para obter `final.mp4`. O projeto nao abre CapCut e nao altera os projetos Premiere/Kdenlive.
+
+O modo `repo-zip` usa o mesmo extrator seguro `download-input.py` dos uploads secretos, rejeitando ZIPs invalidos. Os testes de CI verificam o importador com dados sinteticos. A renderizacao real de `repo-zip` com este video ainda depende de voce fazer upload e rodar o workflow. Ao enviar video com audio embutido, nao adicione `music.mp3`: o Remotion preserva o audio original.
+
 ## Primeiro teste pelo celular
 
 1. Entre no repositório → **Actions → Editar Emo Rap — Remotion → Run workflow**. Se o botão estiver escondido, use “Site para computador” no Chrome.
