@@ -31,7 +31,7 @@ Resoluções: `540`=540×960, `720`=720×1280, `1080`=1080×1920. Todas 30 FPS. 
 **Novo:** em **Actions → Editar Emo Rap — Remotion → Run workflow**, escolha
 `traducao_ia=gemini-ptbr` para pedir ao Gemini que **escute um único trecho**
 e entregue frases que ele conseguiu reconhecer com **tradução em português do Brasil
-e tempos aproximados**. O Remotion usa essas frases como textos animados no edit.
+e tempos aproximados**. O Remotion tenta animar cada palavra traduzida separadamente, quando houver tempo suficiente; frases muito rapidas permanecem juntas para leitura. Os tempos de cada palavra sao estimados, nao alinhamento perfeito.
 Quando esta opção está **desligada** (padrão), o editor continua usando o arquivo
 `lyrics.json` existente ou fica sem legendas, exatamente como antes.
 
