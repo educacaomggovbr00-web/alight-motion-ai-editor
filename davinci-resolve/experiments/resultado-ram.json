@@ -1,0 +1,26 @@
+{
+  "physicalGpuBefore": false,
+  "memAvailableBefore": 9675390976,
+  "imageSizeBytes": 134217728,
+  "imageAllocatedBytes": 134217728,
+  "memAvailableAfterRamImage": 9535590400,
+  "fatReadWritePassed": true,
+  "proofSha256": "4f2515aa07c7aef6883f64799b254ac334a37c61a7d9fca9619b0426ce2c98c9",
+  "memAvailableAfterFatTest": 9535352832,
+  "opencl": {
+    "bufferBytes": 67108864,
+    "filledAndRead": true,
+    "values": [
+      305419896,
+      305419896
+    ],
+    "physicalGpu": false
+  },
+  "memAvailableWithBothReservations": 9424601088,
+  "physicalGpuAfterReservation": false,
+  "resolveStarted": true,
+  "resolveDvipContextFailed": true,
+  "editingProven": false,
+  "ramImageRemoved": true,
+  "memAvailableAfterCleanup": 8851898368
+}
