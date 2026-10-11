@@ -19,7 +19,12 @@ jobs:
       - name: Preparar somente o dispositivo de memória do kernel
         run: |
           mkdir -p patch-output
-          sudo modprobe udmabuf
+          uname -r > patch-output/kernel.txt
+          if ! sudo modprobe udmabuf; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends "linux-modules-extra-$(uname -r)"
+            sudo modprobe udmabuf
+          fi
           if [[ ! -e /dev/udmabuf && -r /sys/class/misc/udmabuf/dev ]]; then
             IFS=: read -r major minor < /sys/class/misc/udmabuf/dev
             sudo mknod -m 600 /dev/udmabuf c "$major" "$minor"
