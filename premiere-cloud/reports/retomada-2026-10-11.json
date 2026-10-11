@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "scope": "read_only_resume_audit",
+  "host": {
+    "state": "bloqueado",
+    "kvmAvailable": false,
+    "gpuDeviceExposed": false,
+    "vramProven": false,
+    "availableRamBytes": 9671704576,
+    "freeDiskBytes": 16398815232,
+    "toolsOnPath": {
+      "qemu-system-x86_64": false,
+      "qemu-img": false,
+      "swtpm": false
+    },
+    "blockers": [
+      "KVM indisponivel: retomada seria emulada por CPU, muito lenta.",
+      "Nenhum dispositivo GPU renderD exposto; VRAM/pass-through nao comprovados.",
+      "Menos de 10 GiB RAM livre exigidos pelo launcher de retomada.",
+      "Ferramentas QEMU/TPM ausentes do PATH; binarios privados exigem configuracao explicita."
+    ],
+    "premiereProven": false,
+    "nextAction": "Host privado persistente autorizado com Windows/GPU/licencas; executar preflight.ps1 na sessao grafica."
+  },
+  "vm": {
+    "diskFormat": "raw",
+    "diskLogicalBytes": 107374182400,
+    "diskAllocatedBytes": 3393892352,
+    "uefiAndTpmPresent": true,
+    "previousEvidence": {
+      "state": "experimental",
+      "reason": "limite_600s",
+      "windowsInstalledProven": false,
+      "premiereInstalledProven": false
+    },
+    "bootableProven": false,
+    "desktopProven": false,
+    "premiereProven": false,
+    "note": "Presenca dos arquivos nao prova integridade, boot ou instalacao concluida."
+  }
+}
