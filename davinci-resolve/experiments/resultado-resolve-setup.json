@@ -1,0 +1,90 @@
+{
+  "dateUTC": "2026-10-11",
+  "environment": "private workspace, Debian 13, Mesa 26.1.6; NOT GitHub Actions",
+  "originalResolveVersion": "21.1.1",
+  "nativeInstallationProven": false,
+  "binaryStartedFromExistingExtraction": true,
+  "editingProven": false,
+  "exportProven": false,
+  "profiles": [
+    {
+      "profile": "setup-llvmpipe",
+      "limitSeconds": 30,
+      "physicalGpuDeviceNodes": [],
+      "renderer": "llvmpipe",
+      "openclTypeOverride": false,
+      "systemGlibRequested": false,
+      "editingProven": false,
+      "exportProven": false,
+      "loadedLibraries": [],
+      "screenSha256": "94557b23aaded3cae32a0655686a0ad927de7f376a60c519dba4912ebe15f217",
+      "dvipContextFailed": false,
+      "unsupportedGpuMode": true,
+      "version21Observed": true,
+      "loadedLibrariesVerified": false,
+      "dvipInitializationFailed": false,
+      "dvipMessages": [],
+      "detectedSoftwareAdapterAsGpu": false,
+      "state": "bloqueado"
+    },
+    {
+      "profile": "system-glib-zink-egl",
+      "limitSeconds": 45,
+      "physicalGpuDeviceNodes": [],
+      "renderer": "zink",
+      "openclTypeOverride": true,
+      "systemGlibRequested": true,
+      "editingProven": false,
+      "exportProven": false,
+      "loadedLibraries": [
+        "/usr/lib/x86_64-linux-gnu/libOpenCL.so.1.0.0",
+        "/usr/lib/x86_64-linux-gnu/libgio-2.0.so.0.8400.4",
+        "/usr/lib/x86_64-linux-gnu/libglib-2.0.so.0.8400.4",
+        "/usr/lib/x86_64-linux-gnu/libgmodule-2.0.so.0.8400.4",
+        "/usr/lib/x86_64-linux-gnu/libgobject-2.0.so.0.8400.4"
+      ],
+      "screenSha256": "7546869c8003d8b5f3c965740b07ec0c8a63fb383e26276d53b83050c9933190",
+      "dvipContextFailed": false,
+      "unsupportedGpuMode": false,
+      "version21Observed": true,
+      "loadedLibrariesVerified": true,
+      "observedSettings": {
+        "QT_QPA_PLATFORM": "xcb",
+        "RUSTICL_ENABLE": "llvmpipe,zink",
+        "RUSTICL_DEVICE_TYPE": "gpu",
+        "QT_XCB_GL_INTEGRATION": "xcb_egl"
+      },
+      "dvipInitializationFailed": true,
+      "dvipMessages": [
+        "DVIP Exception: Attempted to create OpenCL context with OpenGL interop enabled but no OpenGL context is current"
+      ],
+      "detectedSoftwareAdapterAsGpu": true,
+      "state": "bloqueado"
+    },
+    {
+      "profile": "system-glib-zink-glx",
+      "limitSeconds": 45,
+      "physicalGpuDeviceNodes": [],
+      "renderer": "zink",
+      "openclTypeOverride": true,
+      "systemGlibRequested": true,
+      "editingProven": false,
+      "exportProven": false,
+      "loadedLibraries": [],
+      "screenSha256": "e61818c5534e4fd81ef39929f9ed421e5ecd2ceef2a32809b9f2e033a7311d74",
+      "dvipContextFailed": true,
+      "unsupportedGpuMode": false,
+      "version21Observed": true,
+      "loadedLibrariesVerified": false,
+      "dvipInitializationFailed": true,
+      "dvipMessages": [
+        "DVIP Exception: OpenCL Context Manager failed to create context."
+      ],
+      "detectedSoftwareAdapterAsGpu": true,
+      "state": "bloqueado"
+    }
+  ],
+  "newBinaryDownload": false,
+  "originalPayloadModified": false,
+  "setupScriptSha256": "1cc3bfd2fd7e437d6574192ebf1bb12575afd08972721fcffe49182957710bf2"
+}

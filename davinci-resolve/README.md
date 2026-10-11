@@ -28,3 +28,9 @@ Precisamos de máquina Windows/Linux compatível cedida gratuitamente, GPU/drive
 Depois: baixar gratuitamente pelo formulário oficial, instalar na máquina compatível, abrir manualmente, importar um vídeo sintético, criar timeline, exportar e validar com FFprobe. Só então preparar automação com os documentos de scripting incluídos na versão instalada. Não presumir que APIs externas/execução sem interface estão disponíveis na edição gratuita.
 
 No Linux, o suporte H.264/AAC varia por versão/edição: consultar tabela oficial de codecs. Transcodificação auxiliar para DNxHR/PCM pode ajudar a importar, mas FFmpeg não será chamado de render do Resolve. Não criamos APIs, legendas ou presets fictícios.
+
+
+## Diagnóstico atualizado: DMA-BUF e GL sharing
+
+[Resultados reais de Mesa 26.1.6/26.2.4 e próximos requisitos](TESTE-DMABUF-GL-SHARING.md). DMA-BUF passou; as 16 combinações OpenGL/OpenCL falharam. DaVinci ainda bloqueado para edição/exportação.
+
