@@ -65,7 +65,7 @@ def advance_onboarding(output, env):
         screen=output/f'onboarding-{index}.png'
         status,_=bounded(['import','-window','root',str(screen)],env,10)
         if status['exitCode']:break
-        _,tsv=bounded(['tesseract',str(screen),'stdout','tsv'],env,15,output/f'onboarding-{index}.log')
+        _,tsv=bounded(['tesseract',str(screen),'stdout','--psm','6','tsv'],env,15,output/f'onboarding-{index}.log')
         rows=[line.split('\t') for line in tsv.splitlines()[1:]]
         words=[r for r in rows if len(r)>=12 and r[11].strip()]
         text=' '.join(r[11] for r in words)
@@ -161,7 +161,7 @@ def main():
                 if result['onboardingActions']:time.sleep(40)
                 status,_=bounded(['import','-window','root',str(a.output/'screen-before-sdk.png')],desktop_env,15)
                 result['screenshotCaptured']=status['exitCode']==0
-                _,ocr=bounded(['tesseract',str(a.output/'screen-before-sdk.png'),'stdout'],desktop_env,15,a.output/'screen-text.txt')
+                _,ocr=bounded(['tesseract',str(a.output/'screen-before-sdk.png'),'stdout','--psm','6'],desktop_env,15,a.output/'screen-text.txt')
                 _,titles=bounded(['xdotool','search','--onlyvisible','--name','.*','getwindowname','%@'],desktop_env,10,a.output/'window-titles.txt')
                 text=(ocr+'\n'+titles).lower();result['unsupportedGpuModeObserved']=('unsupported gpu' in text or 'unsupported gpu processing mode' in text) if result['screenshotCaptured'] else None
                 result['splashColorPageObserved']='loading color page' in text
