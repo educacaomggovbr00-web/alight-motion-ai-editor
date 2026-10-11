@@ -29,11 +29,11 @@ Resoluções: `540`=540×960, `720`=720×1280, `1080`=1080×1920. Todas 30 FPS. 
 ## Tradução automática por IA Gemini (opcional)
 
 **Novo:** em **Actions → Editar Emo Rap — Remotion → Run workflow**, escolha
-\`traducao_ia=gemini-ptbr\` para pedir ao Gemini que **escute um único trecho**
+`traducao_ia=gemini-ptbr` para pedir ao Gemini que **escute um único trecho**
 e entregue frases que ele conseguiu reconhecer com **tradução em português do Brasil
 e tempos aproximados**. O Remotion usa essas frases como textos animados no edit.
 Quando esta opção está **desligada** (padrão), o editor continua usando o arquivo
-\`lyrics.json\` existente ou fica sem legendas, exatamente como antes.
+`lyrics.json` existente ou fica sem legendas, exatamente como antes.
 
 ### Configurar pelo Moto G22 (uma única vez)
 
@@ -41,25 +41,25 @@ Quando esta opção está **desligada** (padrão), o editor continua usando o ar
    A conta Gemini de chat não é automaticamente uma chave de API e o acesso ao modelo
    depende da sua região, limites e nível de faturamento.
 2. No GitHub, entre neste repositório e abra **Settings → Secrets and variables →
-   Actions → New repository secret**. Nome **\`GEMINI_API_KEY\`**, valor a chave obtida
+   Actions → New repository secret**. Nome **`GEMINI_API_KEY`**, valor a chave obtida
    no AI Studio. **NÃO cole a chave no ZIP, no chat, no código, em Issues ou em inputs do Actions.**
-3. Faça upload do arquivo \`entrada.zip\` permitido na pasta \`remotion-emo-rap/importar\`,
-   ou use \`secret-zip\` numa cópia privada do repositório. Os arquivos precisam incluir
-   \`artist.mp4\` com áudio embutido, ou um dos arquivos opcionais \`music.wav/mp3/m4a\`.
+3. Faça upload do arquivo `entrada.zip` permitido na pasta `remotion-emo-rap/importar`,
+   ou use `secret-zip` numa cópia privada do repositório. Os arquivos precisam incluir
+   `artist.mp4` com áudio embutido, ou um dos arquivos opcionais `music.wav/mp3/m4a`.
 4. No [workflow manual](../../actions/workflows/editar-remotion.yml), escolha
-   \`entrada=repo-zip\` ou \`secret-zip\`, \`traducao_ia=gemini-ptbr\`, \`duracao=15\`,
-   \`preset=big-text-impact\`, \`resolucao=540\` e \`reduzir_flashes=true\`.
-   No repositório **público**, só autorize \`permitir_resultado_publico=true\` para
-   uma mídia que você possa publicar. Não use a opção \`demo\` com Gemini.
-5. Quando terminar, abra **Artifacts → meu-edit-remotion**: baixe \`final.mp4\` e
-   \`traducao-para-revisar.json\`, que registra o texto reconhecido, a tradução e
+   `entrada=repo-zip` ou `secret-zip`, `traducao_ia=gemini-ptbr`, `duracao=15`,
+   `preset=big-text-impact`, `resolucao=540` e `reduzir_flashes=true`.
+   No repositório **público**, só autorize `permitir_resultado_publico=true` para
+   uma mídia que você possa publicar. Não use a opção `demo` com Gemini.
+5. Quando terminar, abra **Artifacts → meu-edit-remotion**: baixe `final.mp4` e
+   `traducao-para-revisar.json`, que registra o texto reconhecido, a tradução e
    a clareza declarada por trecho. Esse JSON também é exposto a quem puder baixar
    o artefato, então **use repositório privado para mídia pessoal**.
 
-Ao ligar a IA, as legendas que vierem no \`lyrics.json\` do ZIP são substituídas
+Ao ligar a IA, as legendas que vierem no `lyrics.json` do ZIP são substituídas
 **somente na cópia temporária do runner**, inclusive se forem textos DEMO.
 O ZIP no GitHub não é alterado. Se quiser preservar legendas revisadas manualmente,
-deixe \`traducao_ia=desligada\`.
+deixe `traducao_ia=desligada`.
 
 ### Limitações, custos e privacidade
 
@@ -71,14 +71,14 @@ deixe \`traducao_ia=desligada\`.
   edição e sobreposição de vozes podem gerar erros. Tempos são por frase,
   **não alinhamento exato palavra por palavra**. Trechos marcados como
   incertos são omitidos das legendas automaticamente; revise antes de postar.
-- A rotina usa **Gemini 3.8 Flash** pela API oficial (SDK \`google-genai==2.29.0\`),
+- A rotina usa **Gemini 3.8 Flash** pela API oficial (SDK `google-genai==2.29.0`),
   com **uma interação de áudio** por edição. Usa apenas os primeiros segundos
-  escolhidos em \`duracao\`; até 30 segundos. Não faz pesquisa online de letras
+  escolhidos em `duracao`; até 30 segundos. Não faz pesquisa online de letras
   nem preenche lacunas inventando versos.
 - Pode existir cota gratuita, mas **não garantimos gratuidade**; chave sem
   acesso ao modelo, cota esgotada ou erros da API causam falha explícita.
   Não adicionamos faturamento, pagamento automático ou qualquer chave ao código.
-- Se o áudio não permitir transcrição clara, \`lyrics.json\` pode ficar vazio:
+- Se o áudio não permitir transcrição clara, `lyrics.json` pode ficar vazio:
   o edit ainda terá o vídeo/áudio e efeitos, sem legendas inventadas.
 - Não executamos chamada real à API com a tua chave: os testes automatizados
   usam respostas simuladas. A renderização Remotion anterior com os três presets
@@ -101,7 +101,7 @@ lyrics.json     opcional: até 1 MiB/300 palavras
 beats.json      opcional: até 1 MiB/90 impactos
 ```
 
-Limite ZIP/download/expansão: 450 MiB. Vídeo e áudio precisam ter duração suficiente; são cortados no tempo escolhido, não esticados. Artista usa corte central `cover`; confira se o rosto está centralizado. Quando há música, ela substitui o áudio original; sem música preserva o áudio do vídeo se existente. Sem qualquer áudio, exporta MP4 silencioso. Sem letras, não inventa legendas. **Não há transcrição nem detector automático de batidas neste módulo.**
+Limite ZIP/download/expansão: 450 MiB. Vídeo e áudio precisam ter duração suficiente; são cortados no tempo escolhido, não esticados. Artista usa corte central `cover`; confira se o rosto está centralizado. Quando há música, ela substitui o áudio original; sem música preserva o áudio do vídeo se existente. Sem qualquer áudio, exporta MP4 silencioso. Sem letras, não inventa legendas. **Transcrição/tradução automática disponível somente quando `traducao_ia=gemini-ptbr` estiver ativada e a API estiver configurada; detecção automática de batidas ainda não existe neste módulo.**
 
 No Android, use o gerenciador de arquivos que permita compactar ZIP. Faça upload para armazenamento que permita obter um link HTTPS temporário direto ao ZIP (não página HTML de compartilhamento). O serviço não foi provisionado por este projeto. Não cole esse link em Issues, workflow inputs, commits ou chat público.
 
