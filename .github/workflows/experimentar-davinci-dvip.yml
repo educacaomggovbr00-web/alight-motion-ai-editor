@@ -126,7 +126,9 @@ jobs:
             set +e
             timeout --kill-after=5s 300s docker run --rm --name "$probe_name" --memory=6g --cpus=2 --ulimit core=0 \
               --device /dev/udmabuf \
-              -v "$RUNNER_TEMP/davinci-private/squashfs-root:/opt/resolve:ro" \
+              -v "$RUNNER_TEMP/davinci-private/squashfs-root:/opt/resolve" \
+              -v "$RUNNER_TEMP/davinci-private/squashfs-root/bin:/opt/resolve/bin:ro" \
+              -v "$RUNNER_TEMP/davinci-private/squashfs-root/libs:/opt/resolve/libs:ro" \
               -v "$PWD/dvip-output/$profile:/output" \
               codex-resolve-dvip python3 /experiment/dvip/supervise.py \
               --resolve-root /opt/resolve --output /output --backend "$profile"

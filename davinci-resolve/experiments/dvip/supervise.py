@@ -61,6 +61,12 @@ def main():
         if not executable.is_file() or digest(executable)!=BINARY_SHA256:
             result['reason']='Executável original verificado não disponível.';return 2
         result['resolveSha256Before']=BINARY_SHA256
+        # Official post_install.sh creates these normal support folders. No license data is supplied.
+        for folder in ['easyDCP', '.license', 'logs']:
+            (a.resolve_root/folder).mkdir(parents=True,exist_ok=True)
+        Path('/var/BlackmagicDesign/DaVinci Resolve').mkdir(parents=True,exist_ok=True)
+        for folder in ['configs','logs','Fusion']:
+            (Path.home()/'.local/share/DaVinciResolve'/folder).mkdir(parents=True,exist_ok=True)
         env.update(CODEX_EXPERIMENTAL_SOFTWARE_GL_SHARING='1',RUSTICL_DEVICE_TYPE='gpu',QT_QPA_PLATFORM='xcb',QT_XCB_GL_INTEGRATION='xcb_glx' if a.backend=='glx' else 'xcb_egl')
         # System GLib addresses the previously audited bundled GLib conflicts.
         family=['libglib-2.0.so.0','libgobject-2.0.so.0','libgmodule-2.0.so.0','libgio-2.0.so.0']
@@ -141,6 +147,8 @@ def main():
             result['version21ConfirmedInLog']='21.1.1' in recent
         result['reason']='Render real validado.' if result['exportProven'] else 'Execução observada; consulte logs/SDK. Ausência de erro não comprova DVIP ou editor funcional.'
         if result.get('dvipErrors') or result.get('unsupportedGpuModeObserved'):result['state']='bloqueado'
+        if 'Failed to create application support directories' in (a.output/'application.log').read_text():
+            result.update(state='bloqueado',reason='Failed to create application support directories')
         return 0 if result['exportProven'] else 2
     except Exception as exc:
         result['reason']='Experimento falhou: '+type(exc).__name__;return 2
