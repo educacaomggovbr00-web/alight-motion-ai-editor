@@ -61,7 +61,7 @@ runs:
         python3 - <<'PY'
         import json, os
         from pathlib import Path
-        data={'cacheHit':os.environ['MESA_CACHE_HIT']=='true', 'key':os.environ['MESA_CACHE_KEY'], 'imageId':os.environ['MESA_IMAGE_ID'], 'containsProprietaryInstaller':False, 'runtimeRebuilt':True}
+        data={'cacheHit':os.environ['MESA_CACHE_HIT']=='true', 'key':os.environ['MESA_CACHE_KEY'], 'imageId':os.environ['MESA_IMAGE_ID'], 'containsProprietaryInstaller':False, 'runtimeRebuildRequired':True}
         Path('dvip-output/mesa-cache.json').write_text(json.dumps(data,indent=2))
         with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
             out.write('Mesa: '+('restaurado do cache exato' if data['cacheHit'] else 'compilado; gravação do cache solicitada')+'. Instalador e sessão do Resolve não são incluídos.\n')
