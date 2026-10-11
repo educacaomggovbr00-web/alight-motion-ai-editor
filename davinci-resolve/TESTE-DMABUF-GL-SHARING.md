@@ -1,5 +1,7 @@
 # DaVinci sem GPU física: resultado real em 11/10/2026
 
+**Nota posterior: o probe tinha um problema de visibilidade GL corrigido com RTLD_GLOBAL. O Mesa alterado passou quatro testes de buffer. [Resultado atual](ERRO-GL-SHARING-CORRIGIDO.md). Este relatório preserva a execução anterior e não prova impossibilidade do caminho por CPU.**
+
 **Estado: bloqueado para edição e exportação. Nenhum MP4 foi exportado pelo DaVinci.**
 
 [Execução real no GitHub Actions](https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38153583030). O resultado final é `failure` porque a verificação exige compartilhamento OpenGL/OpenCL funcional. As instalações dos ambientes e os diagnósticos terminaram; a falha é o requisito gráfico não atendido, não uma prova de editor funcionando.
@@ -63,3 +65,4 @@ Não foram publicados vídeos pessoais, instaladores proprietários, credenciais
 Para usar o DaVinci agora, falta uma máquina com GPU e driver realmente compatíveis, cedida gratuitamente ou já disponível, com acesso remoto seguro pelo Android. Não há essa máquina configurada neste projeto. Como o orçamento é zero, não provisionamos serviços pagos.
 
 Continuar exclusivamente por CPU exigiria desenvolvimento e validação do suporte de software no driver Mesa/Rusticl e de todos os requisitos de interop do Resolve. Não existe uma configuração pronta comprovada pelos testes. Repetir o instalador, reservar RAM ou anunciar o dispositivo como GPU não resolve a condição identificada. Mesmo um futuro probe aprovado ainda precisará passar pelo DVIP, interface, projeto real e exportação validada com FFprobe antes de declarar edição funcional.
+

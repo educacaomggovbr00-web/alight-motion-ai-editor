@@ -1,8 +1,10 @@
 # Alteração experimental do Rusticl para CPU
 
+**Atualização: o teste corrigido passou em quatro configurações. [Resultado atual e limites](../ERRO-GL-SHARING-CORRIGIDO.md). Os resultados abaixo preservam as revisões anteriores.**
+
 Não é uma correção comprovada do DaVinci. Não cria GPU física e não altera o executável do editor.
 
-O patch cria uma exceção opt-in à condição que recusa dispositivos classificados como software em `is_gl_sharing_supported()` e direciona a criação da tela de software do Rusticl para o backend Vulkan/Zink, no Mesa 26.2.4. O nome `swrast` do carregador e a classificação de software são preservados; `RUSTICL_ENABLE=llvmpipe,zink` permite enumerar esse caminho. Mantém exigências de DMA-BUF, handles, UUID e fences. A exceção só é ativada por `CODEX_EXPERIMENTAL_SOFTWARE_GL_SHARING=1`, uma variável criada por este experimento, não uma opção oficial do Mesa. Sem a variável, a restrição original permanece.
+A revisão anterior criou uma exceção opt-in à condição que recusa dispositivos classificados como software em `is_gl_sharing_supported()` e direcionou a criação da tela de software do Rusticl para o backend Vulkan/Zink, no Mesa 26.2.4. O nome `swrast` do carregador e a classificação de software são preservados; `RUSTICL_ENABLE=llvmpipe,zink` permite enumerar esse caminho. Mantém exigências de DMA-BUF, handles, UUID e fences. A exceção só é ativada por `CODEX_EXPERIMENTAL_SOFTWARE_GL_SHARING=1`, uma variável criada por este experimento, não uma opção oficial do Mesa. Sem a variável, a restrição original permanece.
 
 O script verifica o SHA-256 dos dois arquivos fonte antes de modificar exatamente uma ocorrência em cada arquivo. Fonte diferente ou já modificada é recusada. Foram testados localmente a aplicação no arquivo original, a preservação das condições de capacidade e a recusa de reaplicação.
 
@@ -28,3 +30,13 @@ Não foi demonstrada uma correção do driver, nem removido o bloqueio do DaVinc
 Também corrigimos falhas do executor: reconhecimento de udmabuf embutido no kernel, rótulos suportados pela matriz, nome real `lvp_icd.x86_64.json` e seleção explícita do manifesto EGL compilado. Execuções anteriores que pararam na preparação ou no carregamento não comprovam incompatibilidade do patch.
 
 Para investigar além disso, seria preciso instrumentar a criação da tela e os predicados de capacidade dentro do Rusticl, mantendo comparações isoladas. Não há evidência suficiente para simplesmente anunciar extensões ausentes ou remover todas as verificações. A edição imediata continua dependendo de um ambiente realmente compatível disponível gratuitamente; nenhum foi contratado ou configurado.
+
+## Revisão após o erro mostrado no celular
+
+A alteração de carregador foi removida: seu SHA-256 final deve continuar idêntico ao arquivo original. A revisão atual modifica somente `is_gl_sharing_supported()` e imprime cada predicado real de capacidade quando a opção experimental está ligada. As exigências de DMA-BUF, handles, UUID e fences permanecem. Assim podemos testar a exceção de software isoladamente, sem a regressão de enumeração introduzida pela revisão anterior. O workflow conserva a falha se nenhum buffer real passar; não converte diagnóstico bloqueado em sucesso.
+
+### Correção do diagnóstico GLX/EGL
+
+O Rusticl obtém `glXGetProcAddress` e `eglGetProcAddress` via `dlsym(NULL, ...)`, em `core/gl.rs`. O probe Python carregava libGL/libEGL no modo padrão `RTLD_LOCAL`; nesse modo, reproduzimos que `CDLL(None)` não encontra `glXGetProcAddress`. Com `RTLD_GLOBAL`, o símbolo se torna visível. A revisão carrega ambas as bibliotecas globalmente e registra `procAddressVisibleGlobally` antes de inicializar OpenCL. Isso corrige o diagnóstico, não comprova sozinho o motor DVIP.
+
+Os relatórios antigos com `-1000` ficam preservados como evidência histórica da execução, mas não isolavam o driver do erro de visibilidade do próprio probe. Não devem ser usados como prova de impossibilidade do compartilhamento por software. A comparação corrigida, sem patch no Mesa, retornou `-59` em GLX/EGL nas versões 26.1.6 e 26.2.4.

@@ -1,3 +1,7 @@
+# Atualização: erro do teste corrigido
+
+**O compartilhamento GL/OpenCL por CPU passou em quatro configurações com o Mesa experimental. [Provas e próximo teste DVIP](ERRO-GL-SHARING-CORRIGIDO.md). O DaVinci ainda não foi comprovado nessa configuração.**
+
 # DaVinci Resolve — alternativa preservada no GitHub
 
 Estado: **bloqueado neste ambiente**. Não houve instalação, aplicativo aberto ou exportação pelo Resolve. Não há GPU exposta; o host é Debian 13 x86_64, com aproximadamente 9.7 GiB RAM total. Nenhum recurso pago criado. Os outros editores e workflows continuam preservados.
@@ -23,7 +27,7 @@ Este preflight não certifica compatibilidade: GPU exposta/executável existente
 
 ## Próximo ambiente
 
-Precisamos de máquina Windows/Linux compatível cedida gratuitamente, GPU/driver suportados, armazenamento persistente e acesso remoto autenticado pelo Android. Ainda não existe esse host. Os runners padrão sem GPU não são uma workstation Resolve comprovada. Não foi instalado software para fingir GPU física.
+O caminho oficial continua sendo uma máquina Windows/Linux compatível cedida gratuitamente, com GPU/driver suportados, armazenamento persistente e acesso remoto autenticado pelo Android. O experimento por CPU agora passou a troca de buffer GL/CL e permite investigar DVIP; isso ainda não certifica o editor. Nenhum host completo de edição foi configurado. Os runners padrão sem GPU não são uma workstation Resolve comprovada. Não foi instalado software para fingir GPU física.
 
 Depois: baixar gratuitamente pelo formulário oficial, instalar na máquina compatível, abrir manualmente, importar um vídeo sintético, criar timeline, exportar e validar com FFprobe. Só então preparar automação com os documentos de scripting incluídos na versão instalada. Não presumir que APIs externas/execução sem interface estão disponíveis na edição gratuita.
 
@@ -38,5 +42,6 @@ No Linux, o suporte H.264/AAC varia por versão/edição: consultar tabela ofici
 
 ## Patch experimental do Mesa: resultado
 
-[Compilação, correções do executor e evidências da tentativa](experiments/PATCH-SOFTWARE-SHARING.md). O compartilhamento não passou; a alteração opt-in não corrigiu o DaVinci e não deve ser tratada como instalação funcional.
+[Compilação, correções do executor e evidências da tentativa](experiments/PATCH-SOFTWARE-SHARING.md). A revisão anterior falhou. A revisão atual passou o compartilhamento, mas ainda não foi validada no DaVinci.
+
 
