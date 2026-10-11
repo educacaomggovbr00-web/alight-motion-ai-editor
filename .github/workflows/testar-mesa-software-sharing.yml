@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/testar-mesa-software-sharing.yml'
       - 'davinci-resolve/experiments/patch-mesa-software-sharing.py'
+      - 'davinci-resolve/experiments/gl-sharing-probe.py'
       - 'davinci-resolve/experiments/mesa-software-sharing.Dockerfile'
 permissions:
   contents: read

@@ -15,7 +15,8 @@ def bind(lib, name, args, result=c.c_int):
 
 def graphics(backend):
     x = c.CDLL('libX11.so.6')
-    gl = c.CDLL('libGL.so.1')
+    # Rusticl uses dlsym(RTLD_DEFAULT) for GLX/EGL proc-address functions.
+    gl = c.CDLL('libGL.so.1', mode=c.RTLD_GLOBAL)
     display = bind(x, 'XOpenDisplay', [c.c_char_p], c.c_void_p)(None)
     if not display:
         raise RuntimeError('An X11 display is required; run with xvfb-run.')
@@ -44,7 +45,7 @@ def graphics(backend):
             close(display)
 
         return gl, ctx, display, 0x200a, cleanup
-    egl = c.CDLL('libEGL.so.1')
+    egl = c.CDLL('libEGL.so.1', mode=c.RTLD_GLOBAL)
     ed = bind(egl, 'eglGetDisplay', [c.c_void_p], c.c_void_p)(display)
     major, minor = c.c_int(), c.c_int()
     if not bind(egl, 'eglInitialize', [c.c_void_p, c.POINTER(c.c_int), c.POINTER(c.c_int)])(ed, c.byref(major), c.byref(minor)):
@@ -122,6 +123,12 @@ def probe(backend):
         get_string = bind(gl, 'glGetString', [c.c_uint], c.c_char_p)
         result['glRenderer'] = get_string(0x1f01).decode()
         result['glVersion'] = get_string(0x1f02).decode()
+        global_symbols = c.CDLL(None)
+        proc_name = 'glXGetProcAddress' if backend == 'glx' else 'eglGetProcAddress'
+        result['procAddressVisibleGlobally'] = hasattr(global_symbols, proc_name)
+        if not result['procAddressVisibleGlobally']:
+            result['error'] = 'Required GL proc-address function not visible to Rusticl.'
+            return result
         cl = c.CDLL('libOpenCL.so.1')
         ids = bind(cl, 'clGetPlatformIDs', [c.c_uint, c.POINTER(c.c_void_p), c.POINTER(c.c_uint)])
         count = c.c_uint()
