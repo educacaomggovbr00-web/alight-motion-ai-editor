@@ -53,23 +53,18 @@ class EvidenceTests(unittest.TestCase):
         r=edit_smoke.exercise(None,Path('/unused'),Path('/unused'))
         self.assertFalse(r['apiConnected']);self.assertFalse(r['exportProven'])
     def test_missing_mp4_does_not_invent_codec(self):
-        class Pool:
-            def ImportMedia(self,paths):return [object()]
-            def CreateTimelineFromClips(self,*args):return object()
         class Project:
-            def SetSettings(self,*args):return True
-            def GetMediaPool(self):return Pool()
-            def SetCurrentTimeline(self,*args):return True
             def GetRenderFormats(self):return {'QuickTime':'mov'}
-        class PM:
-            def CreateProject(self,name):return Project()
-            def SaveProject(self):return True
-        class App:
-            def GetVersion(self):return [21,1,1,1,'']
-            def GetProjectManager(self):return PM()
-            def OpenPage(self,page):return True
-        r=edit_smoke.exercise(App(),Path('/synthetic-unit-only'),Path('/unused'))
-        self.assertTrue(r['timelineCreated']);self.assertFalse(r['exportProven']);self.assertIn('MP4',r['reason'])
+            def GetRenderCodecs(self,fmt):return {'Unsupported codec':'unsupported'}
+        chosen,capabilities=edit_smoke.choose_render(Project())
+        self.assertIsNone(chosen)
+        self.assertEqual(capabilities['mp4Codecs'],{})
+    def test_mov_fallback_only_when_dnxhr_announced(self):
+        class Project:
+            def GetRenderFormats(self):return {'QuickTime':'mov'}
+            def GetRenderCodecs(self,fmt):return {'DNxHR LB':'real-announced-id'}
+        chosen,_=edit_smoke.choose_render(Project())
+        self.assertEqual(chosen,('mov','real-announced-id'))
 if __name__=='__main__':unittest.main()
 
 class OnboardingSafety(unittest.TestCase):
@@ -87,3 +82,13 @@ class VerifiedSetupScreen(unittest.TestCase):
         text="GREAT, YOU'RE ALMOST THERE! Before jumping straight into a project let's make sure you're all set up. SKIP AND START RIGHT NOW"
         self.assertEqual(onboarding_button(text),'skip')
         self.assertIsNone(onboarding_button(text+' license agreement'))
+
+class MenuSafety(unittest.TestCase):
+    def test_only_own_script_can_be_selected(self):
+        from internal_menu import choose
+        rows=[{'key':'codexsyntheticsmoke2','text':'other','x':0,'y':10}]
+        self.assertIsNone(choose(rows,'codexsyntheticsmoke'))
+    def test_workspace_must_be_on_top_menu(self):
+        from internal_menu import choose
+        rows=[{'key':'workspace','text':'Workspace','x':300,'y':200}]
+        self.assertIsNone(choose(rows,'workspace',top_only=True))

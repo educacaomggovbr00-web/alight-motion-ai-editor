@@ -38,6 +38,9 @@ runs:
         expected=$(cat image-id.txt)
         actual=$(docker inspect --format '{{.Id}}' codex-resolve-deps)
         test "$actual" = "$expected" || { echo 'Cache bloqueado: identidade da imagem divergente.'; exit 2; }
+    - name: Preparar Mesa apenas se a imagem completa não estiver no cache
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: ./.github/actions/mesa-dvip-cache
     - name: Compilar dependências somente se não houver cache exato
       if: steps.restore.outputs.cache-hit != 'true'
       shell: bash
@@ -72,7 +75,7 @@ runs:
         python3 - <<'PY'
         import json, os
         from pathlib import Path
-        data={'cacheHit':os.environ['DEPS_CACHE_HIT']=='true', 'key':os.environ['DEPS_CACHE_KEY'], 'imageId':os.environ['DEPS_IMAGE_ID'], 'containsProprietaryInstaller':False, 'containsResolve':False, 'containsUserMedia':False, 'runtimeRebuildRequired':True}
+        data={'cacheHit':os.environ['DEPS_CACHE_HIT']=='true', 'key':os.environ['DEPS_CACHE_KEY'], 'imageId':os.environ['DEPS_IMAGE_ID'], 'containsProprietaryInstaller':False, 'containsResolve':False, 'containsUserMedia':False, 'mesaIncluded':True, 'runtimeRebuildRequired':True}
         Path('dvip-output/deps-cache.json').write_text(json.dumps(data,indent=2))
         with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
             out.write('dependências: '+('restaurado do cache exato' if data['cacheHit'] else 'compilado; gravação do cache solicitada')+'. Instalador e sessão do Resolve não são incluídos.\n')

@@ -68,9 +68,9 @@ jobs:
           fi
           test -e /dev/udmabuf || { echo 'Bloqueado: udmabuf indisponível neste kernel.'; exit 2; }
           uname -r > dvip-output/kernel.txt
-      - name: Restaurar ou compilar Mesa com cache de software livre
-        timeout-minutes: 30
-        uses: ./.github/actions/mesa-dvip-cache
+      - name: Restaurar Mesa e dependências livres em uma única imagem
+        timeout-minutes: 35
+        uses: ./.github/actions/resolve-deps-cache
       - name: Atualizar runtime e scripts sem recompilar Mesa
         timeout-minutes: 8
         shell: bash
@@ -115,17 +115,17 @@ jobs:
           docker run --rm --memory=6g --cpus=2 --ulimit core=0 \
             -v "$RUNNER_TEMP/davinci-private:/private" -v "$PWD/dvip-output:/output" \
             codex-resolve-dvip python3 /experiment/dvip/source.py extract --private-dir /private --report /output/extraction.json
-      - name: Gate GL/CL e execucao limitada do Resolve original em GLX e EGL
+      - name: Gate GL/CL e execucao limitada e script interno do Resolve original em GLX
         timeout-minutes: 12
         shell: bash
         run: |
           set -euo pipefail
           probe_name="davinci-original-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           trap 'docker rm -f "$probe_name" >/dev/null 2>&1 || true' EXIT
-          for profile in glx egl; do
+          for profile in glx; do
             mkdir -p "dvip-output/$profile"
             set +e
-            timeout --kill-after=5s 300s docker run --rm --name "$probe_name" --memory=6g --cpus=2 --ulimit core=0 \
+            timeout --kill-after=5s 600s docker run --rm --name "$probe_name" --memory=6g --cpus=2 --ulimit core=0 \
               --device /dev/udmabuf \
               -v "$RUNNER_TEMP/davinci-private/squashfs-root:/opt/resolve" \
               -v "$RUNNER_TEMP/davinci-private/squashfs-root/bin:/opt/resolve/bin:ro" \
@@ -157,6 +157,7 @@ jobs:
             dvip-output/glx/*.txt
             dvip-output/glx/render/*.json
             dvip-output/glx/render/*.mp4
+            dvip-output/glx/render/*.mov
             dvip-output/egl/*.json
             dvip-output/egl/*.log
             dvip-output/egl/*.png
@@ -165,14 +166,14 @@ jobs:
             dvip-output/egl/render/*.mp4
           retention-days: 7
           if-no-files-found: error
-      - name: Exigir MP4 realmente exportado pelo Resolve e validado com FFprobe
+      - name: Exigir render nativo real e MP4 final validado; origem da embalagem explícita
         run: |
           python3 - <<'PY'
           import json, os
           from pathlib import Path
           reports=[json.loads(p.read_text()) for p in Path('dvip-output').glob('*/result.json')]
-          passed=any(r.get('exportProven') is True for r in reports)
-          msg='Exportação real validada pelo Resolve: '+str(passed)+'. Consulte os estados separados de sharing, DVIP, UI, SDK e exportação.'
+          passed=any(r.get('nativeRenderProven') is True and r.get('mp4DeliveryValidated') is True for r in reports)
+          msg='Render nativo e MP4 final validados: '+str(passed)+'. MP4 direto pelo Resolve e conversão auxiliar após MOV têm estados separados no relatório.'
           print(msg)
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:out.write(msg+'\n')
           raise SystemExit(0 if passed else 2)

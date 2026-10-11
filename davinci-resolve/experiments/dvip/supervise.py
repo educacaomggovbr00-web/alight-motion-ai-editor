@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Bounded original-app experiment: independent GL gate, UI, SDK, ffprobe."""
-import argparse, hashlib, json, os, re, resource, signal, subprocess, sys, tempfile, time
+import argparse, hashlib, json, os, re, resource, signal, subprocess, sys, tempfile, time, shutil
+from internal_menu import invoke as invoke_internal_script
 from pathlib import Path
 from source import BINARY_SHA256, digest
 
@@ -47,8 +48,19 @@ def validate_mp4(path):
     data=json.loads(p.stdout);video=next((s for s in data['streams'] if s['codec_type']=='video'),{})
     rate=video.get('avg_frame_rate','0/1');n,d=rate.split('/');fps=float(n)/float(d)
     duration=float(data['format']['duration'])
-    if not (video.get('codec_name')=='h264' and video.get('width')==640 and video.get('height')==360 and abs(fps-30)<.001 and abs(duration-3)<.25):
-        raise ValueError('MP4 não atende H.264, 640×360, 30 FPS e 3 segundos.')
+    audio=next((s for s in data['streams'] if s['codec_type']=='audio'),{})
+    if not (video.get('codec_name')=='h264' and video.get('width')==640 and video.get('height')==360 and abs(fps-30)<.001 and abs(duration-3)<.25 and audio.get('codec_name')=='aac'):
+        raise ValueError('MP4 não atende H.264/AAC, 640×360, 30 FPS e 3 segundos.')
+    return data
+
+def validate_native(path, fmt):
+    p=subprocess.run(['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(path)],capture_output=True,text=True,timeout=15)
+    if p.returncode:raise ValueError('Render nativo não legível.')
+    data=json.loads(p.stdout);video=next((s for s in data['streams'] if s['codec_type']=='video'),{});audio=next((s for s in data['streams'] if s['codec_type']=='audio'),{})
+    n,d=video.get('avg_frame_rate','0/1').split('/');rate=float(n)/float(d)
+    allowed=('h264',) if fmt=='mp4' else ('dnxhd',)
+    if video.get('codec_name') not in allowed or video.get('width')!=640 or video.get('height')!=360 or abs(rate-30)>.001 or abs(float(data['format']['duration'])-3)>.25 or not audio:
+        raise ValueError('Render nativo fora da especificação de vídeo/áudio.')
     return data
 
 def onboarding_button(text):
@@ -93,7 +105,7 @@ def advance_onboarding(output, env):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--resolve-root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--backend',choices=['glx','egl'],required=True);a=p.parse_args()
-    a.output.mkdir(parents=True,exist_ok=True);result={'state':'bloqueado','profile':a.backend,'resolveStarted':False,'glSharingPassed':False,'uiFunctionalProven':False,'dvipInitializationConfirmed':False,'projectCreated':False,'mediaImported':False,'timelineCreated':False,'exportProven':False}
+    a.output.mkdir(parents=True,exist_ok=True);result={'state':'bloqueado','profile':a.backend,'resolveStarted':False,'glSharingPassed':False,'uiFunctionalProven':False,'dvipInitializationConfirmed':False,'projectCreated':False,'mediaImported':False,'timelineCreated':False,'exportProven':False,'nativeRenderProven':False,'nativeMp4ExportProven':False,'mp4DeliveryValidated':False}
     resource.setrlimit(resource.RLIMIT_CORE,(0,0))
     env=clean_env(os.environ);x=app=None
     try:
@@ -137,7 +149,7 @@ def main():
         missing=[l for l in (ldd+'\n'+plugins).splitlines() if 'not found' in l]
         if missing:result['reason']='Bibliotecas necessárias ausentes.';result['missingLibraries']=missing;return 2
         synthetic=a.output/'synthetic.mov'
-        status,_=bounded(['ffmpeg','-y','-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=30','-t','3','-an','-c:v','dnxhd','-profile:v','dnxhr_lb','-pix_fmt','yuv422p',str(synthetic)],env,30,a.output/'synthetic.log')
+        status,_=bounded(['ffmpeg','-y','-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=30','-f','lavfi','-i','sine=frequency=440:sample_rate=48000','-t','3','-c:a','pcm_s16le','-c:v','dnxhd','-profile:v','dnxhr_lb','-pix_fmt','yuv422p',str(synthetic)],env,30,a.output/'synthetic.log')
         if status['exitCode'] or not synthetic.exists():raise RuntimeError('Mídia sintética DNxHR não foi gerada.')
         render=a.output/'render';render.mkdir(exist_ok=True)
         env.update(CODEX_SYNTHETIC_VIDEO=str(synthetic),CODEX_RENDER_OUTPUT=str(render))
@@ -159,6 +171,13 @@ def main():
             if app.poll() is None:
                 result['onboardingActions']=advance_onboarding(a.output,desktop_env)
                 if result['onboardingActions']:time.sleep(40)
+                # Wait for the real main window before touching the documented Scripts menu.
+                for _ in range(18):
+                    _,ready=bounded(['xdotool','search','--onlyvisible','--name','DaVinci Resolve -','getwindowname','%@'],desktop_env,5)
+                    if 'DaVinci Resolve -' in ready:break
+                    if app.poll() is not None:break
+                    time.sleep(5)
+                result['uiMainWindowObserved']='DaVinci Resolve -' in ready
                 status,_=bounded(['import','-window','root',str(a.output/'screen-before-sdk.png')],desktop_env,15)
                 result['screenshotCaptured']=status['exitCode']==0
                 _,ocr=bounded(['tesseract',str(a.output/'screen-before-sdk.png'),'stdout','--psm','6'],desktop_env,15,a.output/'screen-text.txt')
@@ -170,13 +189,36 @@ def main():
                     status,_=bounded([str(python),str(Path(__file__).parent/'edit_smoke.py')],env,90,a.output/'sdk-launch.log');result['sdkProcess']=status
                 else:result['sdkUnavailableReason']='Interpretador oficial ResolvePython não encontrado.'
                 sdk=render/'sdk-result.json'
-                if sdk.exists():
-                    r=json.loads(sdk.read_text());result['sdk']=r
-                    for k in ['projectCreated','mediaImported','timelineCreated']:result[k]=r.get(k) is True
-                    if r.get('renderProducedFile'):
+                external=json.loads(sdk.read_text()) if sdk.exists() else {}
+                if not external.get('apiConnected') and result.get('uiMainWindowObserved'):
+                    result['externalSdk']=external
+                    for name in ['sdk-result.json','sdk-progress.json','sdk-started.json']:(render/name).unlink(missing_ok=True)
+                    result['internalScriptMenu']=invoke_internal_script(a.output,desktop_env,bounded)
+                    if result['internalScriptMenu'].get('scriptMenuInvoked'):
+                        deadline=time.monotonic()+200
+                        while not sdk.exists() and app.poll() is None and time.monotonic()<deadline:time.sleep(1)
+                        result['internalScriptTimedOut']=not sdk.exists()
+                progress=render/'sdk-progress.json'
+                if sdk.exists() or progress.exists():
+                    r=json.loads((sdk if sdk.exists() else progress).read_text());result['sdk']=r
+                    for k in ['projectCreated','mediaImported','timelineCreated','effectApplied']:result[k]=r.get(k) is True
+                    if r.get('renderProducedFile') and r.get('renderStatus',{}).get('JobStatus')=='Complete':
                         try:
-                            metadata=validate_mp4(render/'resolve-synthetic.mp4');(a.output/'ffprobe.json').write_text(json.dumps(metadata,indent=2)+'\n')
-                            result.update(exportProven=True,dvipInitializationConfirmed=True,state='testado')
+                            fmt=r.get('nativeFormat');filename=r.get('nativeFileName')
+                            if fmt not in ('mov','mp4') or filename!='resolve-synthetic.'+fmt:raise ValueError('Caminho nativo inesperado.')
+                            native=render/filename
+                            metadata=validate_native(native,fmt);(a.output/'ffprobe-native.json').write_text(json.dumps(metadata,indent=2)+'\n')
+                            result.update(nativeRenderProven=True,nativeRenderSha256=digest(native),dvipInitializationConfirmed=True,uiFunctionalProven=True)
+                            final=render/'final-delivery.mp4'
+                            if fmt=='mp4':
+                                shutil.copyfile(native,final)
+                                validate_mp4(final);result.update(nativeMp4ExportProven=True,exportProven=True,mp4Packaging='Resolve original')
+                            else:
+                                status,_=bounded(['ffmpeg','-y','-v','error','-i',str(native),'-c:v','libx264','-preset','veryfast','-crf','20','-pix_fmt','yuv420p','-c:a','aac','-b:a','192k','-movflags','+faststart',str(final)],desktop_env,40,a.output/'mp4-packaging.log')
+                                if status['exitCode']:raise ValueError('Embalagem MP4 auxiliar falhou.')
+                                result['mp4Packaging']='FFmpeg auxiliar após render DNxHR MOV do Resolve; não é MP4 exportado diretamente pelo Resolve'
+                            final_metadata=validate_mp4(final);(a.output/'ffprobe.json').write_text(json.dumps(final_metadata,indent=2)+'\n')
+                            result.update(mp4DeliveryValidated=True,state='testado')
                         except (OSError,ValueError,subprocess.TimeoutExpired) as exc:result['validationError']=type(exc).__name__
                 bounded(['import','-window','root',str(a.output/'screen-after-sdk.png')],desktop_env,15)
             result['appExitCode']=app.poll()
@@ -190,12 +232,14 @@ def main():
             (a.output/'resolve-relevant.log').write_text('\n'.join(evidence)+'\n')
             result['dvipErrors']=[l for l in evidence if 'DVIP Exception:' in l or 'failed to create context' in l or 'Failed to initialize OpenCL board manager' in l]
             result['version21ConfirmedInLog']='21.1.1' in recent
+            result['dvipContextCreated']='Created OpenCL context for devices' in recent
+            result['glInteropInitialized']='OpenGL interop was initialized.' in recent
         if debug.exists() and 'CrashReport' in recent: result['nativeCrashReportObserved']=True
-        result['reason']='Render real validado.' if result['exportProven'] else 'Execução observada; consulte logs/SDK. Ausência de erro não comprova DVIP ou editor funcional.'
+        result['reason']='Render nativo e MP4 final validados; consulte origem da embalagem.' if result['nativeRenderProven'] and result['mp4DeliveryValidated'] else 'Execução observada; consulte logs/SDK. Ausência de erro não comprova DVIP ou editor funcional.'
         if result.get('dvipErrors') or result.get('unsupportedGpuModeObserved') or result.get('nativeCrashReportObserved'):result['state']='bloqueado'
         if 'Failed to create application support directories' in (a.output/'application.log').read_text():
             result.update(state='bloqueado',reason='Failed to create application support directories')
-        return 0 if result['exportProven'] else 2
+        return 0 if result['nativeRenderProven'] and result['mp4DeliveryValidated'] else 2
     except Exception as exc:
         result['reason']='Experimento falhou: '+type(exc).__name__;return 2
     finally:

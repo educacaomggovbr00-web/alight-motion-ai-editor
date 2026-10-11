@@ -18,15 +18,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     outputs:
-      image-id: ${{ steps.mesa.outputs.image-id }}
       deps-image-id: ${{ steps.deps.outputs.image-id }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Compilar ou restaurar e gravar imagem Mesa livre
-        id: mesa
-        uses: ./.github/actions/mesa-dvip-cache
       - name: Salvar ou restaurar bibliotecas livres de execução
         id: deps
         uses: ./.github/actions/resolve-deps-cache
@@ -45,11 +41,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Restaurar em outro runner sem recompilar
-        id: mesa
-        uses: ./.github/actions/mesa-dvip-cache
-        with:
-          restore-only: 'true'
       - name: Restaurar dependências livres em outro runner
         id: deps
         uses: ./.github/actions/resolve-deps-cache
@@ -57,18 +48,13 @@ jobs:
           restore-only: 'true'
       - name: Exigir cache hit e imagem idêntica à do primeiro runner
         env:
-          CACHE_HIT: ${{ steps.mesa.outputs.cache-hit }}
           DEPS_CACHE_HIT: ${{ steps.deps.outputs.cache-hit }}
           EXPECTED_DEPS_ID: ${{ needs.prime.outputs.deps-image-id }}
           ACTUAL_DEPS_ID: ${{ steps.deps.outputs.image-id }}
-          EXPECTED_IMAGE_ID: ${{ needs.prime.outputs.image-id }}
-          ACTUAL_IMAGE_ID: ${{ steps.mesa.outputs.image-id }}
         shell: bash
         run: |
           test "$DEPS_CACHE_HIT" = true || { echo 'Falha: dependências não restauradas.'; exit 2; }
           test "$EXPECTED_DEPS_ID" = "$ACTUAL_DEPS_ID" || { echo 'Falha: identidade das dependências divergente.'; exit 2; }
-          test "$CACHE_HIT" = true || { echo 'Falha: cache não foi restaurado no segundo runner.'; exit 2; }
-          test "$EXPECTED_IMAGE_ID" = "$ACTUAL_IMAGE_ID" || { echo 'Falha: imagem restaurada divergente.'; exit 2; }
       - name: Criar dispositivo de memória e repetir os quatro compartilhamentos reais
         timeout-minutes: 5
         shell: bash
