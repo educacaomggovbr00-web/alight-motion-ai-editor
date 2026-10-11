@@ -34,9 +34,10 @@ bash davinci-resolve/tentar-abrir-extraido.sh /pasta/privada/squashfs-root /past
 Para prefixo privado, configure `LD_LIBRARY_PATH`, `OCL_ICD_VENDORS` e mapeie os diretórios libclc/LLVM como feito no teste. Não falsifique o tipo CPU, a VRAM ou a identidade do hardware.
 
 Captura local privada do erro: `/workspace/rusticl-private/resolve-after.png`; SHA-256 `94557b23aaded3cae32a0655686a0ad927de7f376a60c519dba4912ebe15f217`.
-O aplicativo foi encerrado pelo botão Quit. A tentativa tinha limite de 40 segundos.
+O aplicativo foi encerrado pelo botão Quit. O comando interno tinha timeout de 40 segundos, mas o supervisor PRoot permaneceu ativo após a saída do aplicativo e precisou ser encerrado explicitamente. A tela virtual também foi encerrada. Não reutilize esse arranjo como job sem supervisionar o processo externo inteiro.
 
 Documentação oficial: https://docs.mesa3d.org/rusticl.html
 Ela define Rusticl como implementação OpenCL sobre Gallium, com drivers habilitados por `RUSTICL_ENABLE`; não promete compatibilidade com Resolve.
 
 **Conclusão deste teste:** o processamento gráfico por software existe e foi preparado, mas esta combinação não habilitou o DaVinci. Nenhuma GPU física foi criada. Falta uma GPU e um driver aceitos pelo aplicativo para avançar à edição.
+
