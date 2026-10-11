@@ -23,6 +23,11 @@ on:
         type: choice
         options: [demo, repo-zip, secret-zip]
         default: demo
+      traducao_ia:
+        description: Traduzir audio com Gemini para portugues (precisa secret API)
+        type: choice
+        options: [desligada, gemini-ptbr]
+        default: desligada
       reduzir_flashes:
         type: boolean
         default: true
@@ -58,7 +63,12 @@ jobs:
           IS_PRIVATE: ${{ github.event.repository.private }}
           ALLOW_PUBLIC: ${{ inputs.permitir_resultado_publico }}
           SOURCE: ${{ inputs.entrada }}
+          TRANSLATION: ${{ inputs.traducao_ia }}
         run: |
+          if [ "$TRANSLATION" != desligada ] && [ "$SOURCE" = demo ]; then
+            echo '::error::IA Gemini exige video real; escolha repo-zip ou secret-zip.'
+            exit 1
+          fi
           if [ "$SOURCE" != demo ] && [ "$IS_PRIVATE" != true ] && [ "$ALLOW_PUBLIC" != true ]; then
             echo '::error::Use copia privada deste repo para midia pessoal. Artefatos deste repo publico podem ser baixados por terceiros.'
             exit 1
@@ -83,6 +93,19 @@ jobs:
       - name: Importar ZIP presente no repositorio (publico)
         if: inputs.entrada == 'repo-zip'
         run: python3 scripts/import-repo-zip.py
+      - name: Preparar Python para traducao IA (opcional)
+        if: inputs.traducao_ia == 'gemini-ptbr'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar SDK oficial Gemini (somente IA ligada)
+        if: inputs.traducao_ia == 'gemini-ptbr'
+        run: python -m pip install --disable-pip-version-check google-genai==2.29.0
+      - name: Ouvir audio, transcrever e traduzir automaticamente pt-BR
+        if: inputs.traducao_ia == 'gemini-ptbr'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python3 scripts/translate-gemini.py
       - name: Validar entradas e preparar composicao
         run: npm run prepare:edit
       - name: Render real Remotion
@@ -96,6 +119,7 @@ jobs:
             remotion-emo-rap/out/final.mp4
             remotion-emo-rap/out/validation.json
             remotion-emo-rap/out/render.json
+            remotion-emo-rap/out/traducao-para-revisar.json
           retention-days: 3
           if-no-files-found: error
       - run: echo 'MP4 renderizado pelo Remotion e validado. Abra o artefato meu-edit-remotion para baixar.' >> "$GITHUB_STEP_SUMMARY"
