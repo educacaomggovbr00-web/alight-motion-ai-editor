@@ -1,0 +1,98 @@
+name: Editar Emo Rap — Remotion
+on:
+  workflow_dispatch:
+    inputs:
+      preset:
+        type: choice
+        options: [dark-lyrics, emo-rap-glitch, big-text-impact]
+        default: dark-lyrics
+      intensidade:
+        type: choice
+        options: [leve, medio, forte]
+        default: medio
+      resolucao:
+        type: choice
+        options: ['540', '720', '1080']
+        default: '540'
+      duracao:
+        description: Segundos (1 a 30); demo exige 4
+        type: string
+        default: '4'
+      entrada:
+        description: ZIP em secret REMOTION_INPUT_BUNDLE_URL ou demo sintetica
+        type: choice
+        options: [demo, secret-zip]
+        default: demo
+      reduzir_flashes:
+        type: boolean
+        default: true
+      permitir_resultado_publico:
+        description: Em repo publico, autoriza publicar o MP4 (somente midia publicavel)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: remotion-edit
+  cancel-in-progress: false
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: remotion-emo-rap
+    env:
+      PRESET: ${{ inputs.preset }}
+      INTENSITY: ${{ inputs.intensidade }}
+      RESOLUTION: ${{ inputs.resolucao }}
+      DURATION: ${{ inputs.duracao }}
+      REDUCE_FLASHES: ${{ inputs.reduzir_flashes }}
+      DEMO: ${{ inputs.entrada == 'demo' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Proteger midia pessoal em repositorio publico
+        env:
+          IS_PRIVATE: ${{ github.event.repository.private }}
+          ALLOW_PUBLIC: ${{ inputs.permitir_resultado_publico }}
+          SOURCE: ${{ inputs.entrada }}
+        run: |
+          if [ "$SOURCE" != demo ] && [ "$IS_PRIVATE" != true ] && [ "$ALLOW_PUBLIC" != true ]; then
+            echo '::error::Use copia privada deste repo para midia pessoal. Artefatos deste repo publico podem ser baixados por terceiros.'
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+          cache: npm
+          cache-dependency-path: remotion-emo-rap/package-lock.json
+      - run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck && npm test
+      - name: Midia sintetica (nao e artista nem letra transcrita)
+        if: inputs.entrada == 'demo'
+        run: npm run demo
+      - name: Baixar ZIP com link mantido no secret
+        if: inputs.entrada == 'secret-zip'
+        env:
+          REMOTION_INPUT_BUNDLE_URL: ${{ secrets.REMOTION_INPUT_BUNDLE_URL }}
+          REMOTION_MEDIA_HOST: ${{ vars.REMOTION_MEDIA_HOST }}
+        run: python3 scripts/download-input.py
+      - name: Validar entradas e preparar composicao
+        run: npm run prepare:edit
+      - name: Render real Remotion
+        run: npm run render
+      - name: Verificar MP4 com FFprobe
+        run: npm run verify
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meu-edit-remotion
+          path: |
+            remotion-emo-rap/out/final.mp4
+            remotion-emo-rap/out/validation.json
+            remotion-emo-rap/out/render.json
+          retention-days: 3
+          if-no-files-found: error
+      - run: echo 'MP4 renderizado pelo Remotion e validado. Abra o artefato meu-edit-remotion para baixar.' >> "$GITHUB_STEP_SUMMARY"

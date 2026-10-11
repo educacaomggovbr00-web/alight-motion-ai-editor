@@ -1,0 +1,42 @@
+name: Testar Remotion Emo Rap
+on:
+  push:
+    paths: ['remotion-emo-rap/**', '.github/workflows/testar-remotion.yml', '.github/workflows/editar-remotion.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: remotion-synthetic-tests
+  cancel-in-progress: false
+jobs:
+  render-real:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: remotion-emo-rap
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.18.0'
+          cache: npm
+          cache-dependency-path: remotion-emo-rap/package-lock.json
+      - run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ffmpeg
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck && npm test
+      - run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Renderizar tres presets reais e conferir MP4 e quadros
+        run: npm run test:render
+      - uses: actions/upload-artifact@v4
+        with:
+          name: teste-remotion-emo-rap
+          path: |
+            remotion-emo-rap/out/*.mp4
+            remotion-emo-rap/out/*.png
+            remotion-emo-rap/out/smoke.json
+          retention-days: 7
+          if-no-files-found: error
+      - run: echo 'Tres renders Remotion de 4s, H.264/AAC, 540x960/30FPS. Comparacoes de quadros e hashes em smoke.json.' >> "$GITHUB_STEP_SUMMARY"

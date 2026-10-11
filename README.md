@@ -72,3 +72,6 @@ instaladores ou credenciais Adobe neste repositório público.
 
 O editor MP4 com FFmpeg continua disponível independentemente desse teste.
 
+
+
+- **[Editar Emo Rap com Remotion](remotion-emo-rap/README.md)** — presets de lyric edits, React/TypeScript e render MP4 pelo GitHub Actions.
