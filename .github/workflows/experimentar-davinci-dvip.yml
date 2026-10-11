@@ -1,0 +1,188 @@
+name: DaVinci 21.1.1 — experimento DVIP isolado
+on:
+  workflow_call:
+    secrets:
+      DAVINCI_RESOLVE_LINUX_URL:
+        required: false
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      source: ${{ steps.source.outputs.available }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Testar gates, privacidade, timeout e interfaces oficiais sem iniciar Resolve
+        run: |
+          set -euo pipefail
+          mkdir -p dvip-preflight
+          python3 -m unittest discover -s davinci-resolve/experiments/dvip -p test_safety.py -v 2>&1 | tee dvip-preflight/unit-tests.log
+        shell: bash
+      - name: Verificar somente disponibilidade e validade da entrada privada
+        id: source
+        env:
+          DAVINCI_RESOLVE_LINUX_URL: ${{ secrets.DAVINCI_RESOLVE_LINUX_URL }}
+        run: |
+          if python3 davinci-resolve/experiments/dvip/source.py availability --private-dir "$RUNNER_TEMP/davinci-private" --report dvip-preflight/source.json; then
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: davinci-dvip-preflight
+          path: dvip-preflight/
+          retention-days: 7
+          if-no-files-found: error
+  original:
+    needs: preflight
+    if: needs.preflight.outputs.source == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Preparar recursos e dispositivo oficial de memória
+        shell: bash
+        run: |
+          mkdir -p dvip-output
+          python3 - <<'PY'
+          import json, shutil
+          from pathlib import Path
+          p=shutil.disk_usage('.')
+          Path('dvip-output/host.json').write_text(json.dumps({'freeDiskBytes':p.free,'physicalRenderNodes':[str(x) for x in Path('/dev/dri').glob('renderD*')],'state':'experimental','gpuHardwareCreated':False},indent=2))
+          if p.free < 18*1024**3: raise SystemExit('Bloqueado: menos de 18 GiB livres para instalador/extracao/driver isolados.')
+          PY
+          if [[ ! -e /dev/udmabuf && ! -r /sys/class/misc/udmabuf/dev ]]; then
+            sudo modprobe udmabuf || true
+          fi
+          if [[ ! -e /dev/udmabuf && -r /sys/class/misc/udmabuf/dev ]]; then
+            IFS=: read -r major minor < /sys/class/misc/udmabuf/dev
+            sudo mknod -m 600 /dev/udmabuf c "$major" "$minor"
+          fi
+          test -e /dev/udmabuf || { echo 'Bloqueado: udmabuf indisponível neste kernel.'; exit 2; }
+          uname -r > dvip-output/kernel.txt
+      - name: Reproduzir fonte, imagem-base e flags do Mesa aprovado
+        timeout-minutes: 25
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --progress=plain -f davinci-resolve/experiments/dvip/mesa-build.Dockerfile \
+            -t codex-mesa-dvip davinci-resolve/experiments 2>&1 | tee dvip-output/mesa-build.log
+          docker build --progress=plain -f davinci-resolve/experiments/dvip/runtime.Dockerfile \
+            -t codex-resolve-dvip davinci-resolve/experiments 2>&1 | tee dvip-output/runtime-build.log
+          docker run --rm codex-resolve-dvip cat /experiment/runtime-package-versions.txt > dvip-output/package-versions.txt
+          docker run --rm codex-resolve-dvip cat /experiment/mesa-library-hashes.txt > dvip-output/mesa-library-hashes.txt
+          docker run --rm codex-resolve-dvip cat /build/patch-result.json > dvip-output/mesa-patch.json
+          docker inspect --format '{{.Id}}' codex-resolve-dvip > dvip-output/container-id.txt
+      - name: Revalidar quatro buffers com a mesma imagem antes de baixar o original
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dvip-output/gate
+          probe_name="mesa-gate-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          trap 'docker rm -f "$probe_name" >/dev/null 2>&1 || true' EXIT
+          timeout --kill-after=5s 240s docker run --rm --name "$probe_name" --memory=6g --cpus=2 \
+            --device /dev/udmabuf -e CODEX_EXPERIMENTAL_SOFTWARE_GL_SHARING=1 \
+            -v "$PWD/dvip-output/gate:/output" codex-resolve-dvip \
+            python3 /experiment/run-gl-sharing-matrix.py --output /output --label with-udmabuf
+          python3 - <<'PYCODE'
+          import json, sys
+          from pathlib import Path
+          sys.path.insert(0,'davinci-resolve/experiments/dvip')
+          from supervise import verified
+          probes=[json.loads(p.read_text()) for p in Path('dvip-output/gate').glob('*-glx.json')]
+          probes += [json.loads(p.read_text()) for p in Path('dvip-output/gate').glob('*-egl.json')]
+          if len(probes)!=4 or not all(verified(p) for p in probes):
+              raise SystemExit('Gate bloqueado: quatro buffers não passaram. Download do Resolve não iniciado.')
+          PYCODE
+      - name: Obter somente o instalador oficial privado e conferir SHA-256 conhecido
+        timeout-minutes: 12
+        env:
+          DAVINCI_RESOLVE_LINUX_URL: ${{ secrets.DAVINCI_RESOLVE_LINUX_URL }}
+        run: python3 davinci-resolve/experiments/dvip/source.py download --private-dir "$RUNNER_TEMP/davinci-private" --report dvip-output/source-integrity.json
+      - name: Extrair o original sem modificar seus arquivos nem executar instalacao silenciosa
+        timeout-minutes: 5
+        run: |
+          docker run --rm --memory=6g --cpus=2 --ulimit core=0 \
+            -v "$RUNNER_TEMP/davinci-private:/private" -v "$PWD/dvip-output:/output" \
+            codex-resolve-dvip python3 /experiment/dvip/source.py extract --private-dir /private --report /output/extraction.json
+      - name: Gate GL/CL e execucao limitada do Resolve original em GLX e EGL
+        timeout-minutes: 12
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe_name="davinci-original-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          trap 'docker rm -f "$probe_name" >/dev/null 2>&1 || true' EXIT
+          for profile in glx egl; do
+            mkdir -p "dvip-output/$profile"
+            set +e
+            timeout --kill-after=5s 300s docker run --rm --name "$probe_name" --memory=6g --cpus=2 --ulimit core=0 \
+              --device /dev/udmabuf \
+              -v "$RUNNER_TEMP/davinci-private/squashfs-root:/opt/resolve:ro" \
+              -v "$PWD/dvip-output/$profile:/output" \
+              codex-resolve-dvip python3 /experiment/dvip/supervise.py \
+              --resolve-root /opt/resolve --output /output --backend "$profile"
+            code=$?
+            set -e
+            printf '%s\n' "$code" > "dvip-output/$profile/container-exit-code.txt"
+            docker rm -f "$probe_name" >/dev/null 2>&1 || true
+          done
+      - name: Limpar somente arquivos proprietarios temporarios deste experimento
+        if: always()
+        run: sudo rm -rf -- "$RUNNER_TEMP/davinci-private"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: davinci-original-dvip-evidence
+          path: |
+            dvip-output/*.json
+            dvip-output/*.txt
+            dvip-output/*build.log
+            dvip-output/gate/*.json
+            dvip-output/gate/*.log
+            dvip-output/glx/*.json
+            dvip-output/glx/*.log
+            dvip-output/glx/*.png
+            dvip-output/glx/*.txt
+            dvip-output/glx/render/*.json
+            dvip-output/glx/render/*.mp4
+            dvip-output/egl/*.json
+            dvip-output/egl/*.log
+            dvip-output/egl/*.png
+            dvip-output/egl/*.txt
+            dvip-output/egl/render/*.json
+            dvip-output/egl/render/*.mp4
+          retention-days: 7
+          if-no-files-found: error
+      - name: Exigir MP4 realmente exportado pelo Resolve e validado com FFprobe
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          reports=[json.loads(p.read_text()) for p in Path('dvip-output').glob('*/result.json')]
+          passed=any(r.get('exportProven') is True for r in reports)
+          msg='Exportação real validada pelo Resolve: '+str(passed)+'. Consulte os estados separados de sharing, DVIP, UI, SDK e exportação.'
+          print(msg)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:out.write(msg+'\n')
+          raise SystemExit(0 if passed else 2)
+          PY
+  source-block:
+    needs: preflight
+    if: needs.preflight.outputs.source != 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Informar o bloqueio sem executar downloads ou compilações inúteis
+        run: |
+          echo 'Bloqueado: segredo DAVINCI_RESOLVE_LINUX_URL ausente ou inválido/expirado.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Configure uma nova URL oficial 21.1.1 Linux exclusivamente em Settings > Secrets and variables > Actions. Não cole o link nos arquivos, issues ou logs.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Resolve, DVIP e exportação não iniciados nesta execução.' >> "$GITHUB_STEP_SUMMARY"
+          exit 2

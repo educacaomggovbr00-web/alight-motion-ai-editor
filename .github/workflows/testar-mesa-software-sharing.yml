@@ -1,76 +1,17 @@
-name: DaVinci — patch experimental de GL sharing por CPU
+# Experimental branch only. main retains its previously verified workflow.
+name: DaVinci — DVIP original 21.1.1 por CPU (experimental)
 on:
   workflow_dispatch:
   push:
+    branches: ['experiment/davinci-21-1-1-software-dvip']
     paths:
       - '.github/workflows/testar-mesa-software-sharing.yml'
-      - 'davinci-resolve/experiments/patch-mesa-software-sharing.py'
-      - 'davinci-resolve/experiments/gl-sharing-probe.py'
-      - 'davinci-resolve/experiments/mesa-software-sharing.Dockerfile'
+      - '.github/workflows/experimentar-davinci-dvip.yml'
+      - 'davinci-resolve/experiments/dvip/*.py'
+      - 'davinci-resolve/experiments/dvip/*Dockerfile'
 permissions:
   contents: read
 jobs:
-  patched-driver:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Preparar somente o dispositivo de memória do kernel
-        run: |
-          mkdir -p patch-output
-          uname -r > patch-output/kernel.txt
-          if [[ ! -e /dev/udmabuf && ! -r /sys/class/misc/udmabuf/dev ]] && ! sudo modprobe udmabuf; then
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends "linux-modules-extra-$(uname -r)"
-            sudo modprobe udmabuf || true
-          fi
-          if [[ ! -e /dev/udmabuf && -r /sys/class/misc/udmabuf/dev ]]; then
-            IFS=: read -r major minor < /sys/class/misc/udmabuf/dev
-            sudo mknod -m 600 /dev/udmabuf c "$major" "$minor"
-          fi
-          test -e /dev/udmabuf
-      - name: Compilar Mesa 26.2.4 com alteração opt-in isolada
-        timeout-minutes: 35
-        shell: bash
-        run: |
-          set -o pipefail
-          docker build --progress=plain -f davinci-resolve/experiments/mesa-software-sharing.Dockerfile \
-            -t mesa-software-patch davinci-resolve/experiments 2>&1 | tee patch-output/build.log
-          docker run --rm mesa-software-patch cat /build/patch-result.json > patch-output/patch-result.json
-      - name: Comparar restrição original e alteração experimental
-        shell: bash
-        run: |
-          set -euo pipefail
-          probe_name="mesa-patch-$GITHUB_RUN_ID"
-          trap 'docker rm -f "$probe_name" >/dev/null 2>&1 || true' EXIT
-          for optin in 0 1; do
-            timeout --kill-after=5s 240s docker run --rm --name "$probe_name" --memory=5g --cpus=2 \
-              --device /dev/udmabuf -e CODEX_EXPERIMENTAL_SOFTWARE_GL_SHARING="$optin" \
-              -v "$PWD/patch-output:/output" mesa-software-patch \
-              python3 /experiment/run-gl-sharing-matrix.py --output "/output/patch-optin-$optin" --label with-udmabuf
-          done
-      - name: Exibir capacidades reais do Rusticl alterado
-        if: always()
-        run: rg "^CODEX_GL_CAPS" patch-output/patch-optin-1/ --glob "*.stderr.log" || true
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: mesa-software-sharing-experimental
-          path: patch-output/
-          retention-days: 7
-      - name: Exigir compartilhamento completo; não declarar DaVinci funcionando
-        run: |
-          python3 - <<'PY'
-          import json, os
-          from pathlib import Path
-          reports = [json.loads(p.read_text()) for p in Path('patch-output/patch-optin-1').glob('*-glx.json')]
-          reports += [json.loads(p.read_text()) for p in Path('patch-output/patch-optin-1').glob('*-egl.json')]
-          passed = any(r.get('glSharingPassed') is True for r in reports)
-          msg = 'Buffer GL/OpenCL compartilhado: ' + str(passed) + '. DaVinci não iniciado; edição/exportação não comprovadas.'
-          print(msg)
-          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
-              out.write(msg + '\n')
-          raise SystemExit(0 if passed else 1)
-          PY
+  experiment:
+    uses: ./.github/workflows/experimentar-davinci-dvip.yml
+    secrets: inherit
