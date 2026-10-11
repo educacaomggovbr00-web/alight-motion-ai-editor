@@ -39,7 +39,7 @@ def invoke(output, env, run):
         if status['exitCode']:return []
         _,tsv=run(['tesseract',str(screen),'stdout','--psm','11','tsv'],env,15,output/f'internal-menu-{index}.log')
         rows=labels(tsv,scale=1)
-        if not rows or (index==0 and choose(rows,'workspace',top_only=True) is None):
+        if not rows or (index==0 and choose(rows,'workspace',top_only=True) is None) or (index==1 and choose(rows,'scripts') is None) or index>=2:
             _,fallback=run(['tesseract',str(large),'stdout','--psm','6','tsv'],env,15,output/f'internal-menu-fallback-{index}.log')
             rows+=labels(fallback,scale=2)
         if index==0 and choose(rows,'workspace',top_only=True) is None:
@@ -50,6 +50,16 @@ def invoke(output, env, run):
                 for row in labels(header,scale=4):
                     row['x']+=608
                     rows.append(row)
+        if index>=1:
+            # Actual captured Workspace menu, then the right-hand script submenu.
+            crop=output/f'internal-menu-region-{index}.png'
+            geometry='220x480+610+20' if index==1 else '470x300+800+400'
+            offset=(610,20) if index==1 else (800,400)
+            status,_=run(['convert',str(screen),'-crop',geometry,'+repage','-resize','300%','-negate',str(crop)],env,10)
+            if status['exitCode']==0:
+                _,region=run(['tesseract',str(crop),'stdout','--psm','6','tsv'],env,15,output/f'internal-menu-region-{index}.log')
+                for row in labels(region,scale=3):
+                    row['x']+=offset[0];row['y']+=offset[1];rows.append(row)
         text=' '.join(r['text'] for r in rows).lower()
         if any(s in text for s in ['license agreement','terms and conditions','sign in','license key']):return []
         return rows
