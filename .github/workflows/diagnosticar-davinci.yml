@@ -1,0 +1,29 @@
+name: DaVinci Resolve — diagnostico, nao renderiza
+on:
+  workflow_dispatch:
+  push:
+    paths: ['davinci-resolve/**', '.github/workflows/diagnosticar-davinci.yml']
+permissions:
+  contents: read
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Testar validacao sem instalar Resolve
+        run: python3 -m unittest discover -s davinci-resolve/tests -v
+      - name: Inspecionar recursos reais do runner
+        run: python3 davinci-resolve/preflight.py --output davinci-resolve/runtime/host.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: davinci-host-diagnostic
+          path: davinci-resolve/runtime/host.json
+          retention-days: 7
+          if-no-files-found: error
+      - run: echo 'Diagnostico produzido. Leia state/blockers do JSON; nao houve instalacao, abertura ou exportacao pelo Resolve.' >> "$GITHUB_STEP_SUMMARY"

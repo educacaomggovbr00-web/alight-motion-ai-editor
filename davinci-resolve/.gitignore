@@ -1,0 +1,7 @@
+runtime/
+input/
+output/
+__pycache__/
+*.zip
+*.run
+*.exe
