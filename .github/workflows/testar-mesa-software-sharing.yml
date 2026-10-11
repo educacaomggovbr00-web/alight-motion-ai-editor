@@ -9,6 +9,9 @@ on:
       - '.github/workflows/experimentar-davinci-dvip.yml'
       - 'davinci-resolve/experiments/dvip/*.py'
       - 'davinci-resolve/experiments/dvip/*Dockerfile'
+concurrency:
+  group: davinci-original-dvip-experimental
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
