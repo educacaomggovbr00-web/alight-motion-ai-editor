@@ -5,7 +5,9 @@ publico e pode permanecer no historico Git apos a exclusao do arquivo.
 Para midia privada, prefira usar secret-zip em repositorio privado.
 """
 from pathlib import Path
-from download_input import extract
+from runpy import run_path
+
+extract = run_path(str(Path(__file__).with_name('download-input.py')))['extract']
 
 
 def main():
