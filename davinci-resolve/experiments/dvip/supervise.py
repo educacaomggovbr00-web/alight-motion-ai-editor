@@ -51,6 +51,34 @@ def validate_mp4(path):
         raise ValueError('MP4 não atende H.264, 640×360, 30 FPS e 3 segundos.')
     return data
 
+def onboarding_button(text):
+    text=text.lower()
+    if any(x in text for x in ['license agreement','terms and conditions','sign in','activation','license key']):return None
+    if "what's new in davinci resolve" in text and 'continue' in text:return 'continue'
+    if 'welcome' in text and 'davinci resolve' in text and 'skip' in text:return 'skip'
+    return None
+
+def advance_onboarding(output, env):
+    steps=[]
+    for index in range(3):
+        screen=output/f'onboarding-{index}.png'
+        status,_=bounded(['import','-window','root',str(screen)],env,10)
+        if status['exitCode']:break
+        _,tsv=bounded(['tesseract',str(screen),'stdout','tsv'],env,15,output/f'onboarding-{index}.log')
+        rows=[line.split('\t') for line in tsv.splitlines()[1:]]
+        words=[r for r in rows if len(r)>=12 and r[11].strip()]
+        text=' '.join(r[11] for r in words)
+        button=onboarding_button(text)
+        if button is None:break
+        match=next((r for r in words if r[11].lower().startswith(button)),None)
+        if not match:break
+        x=int(match[6])+int(match[8])//2;y=int(match[7])+int(match[9])//2
+        status,_=bounded(['xdotool','mousemove','--sync',str(x),str(y),'click','1'],env,5)
+        steps.append({'screen':index,'recognizedButton':button,'clicked':status['exitCode']==0})
+        if status['exitCode']:break
+        time.sleep(5)
+    return steps
+
 def main():
     p=argparse.ArgumentParser();p.add_argument('--resolve-root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--backend',choices=['glx','egl'],required=True);a=p.parse_args()
     a.output.mkdir(parents=True,exist_ok=True);result={'state':'bloqueado','profile':a.backend,'resolveStarted':False,'glSharingPassed':False,'uiFunctionalProven':False,'dvipInitializationConfirmed':False,'projectCreated':False,'mediaImported':False,'timelineCreated':False,'exportProven':False}
@@ -85,6 +113,7 @@ def main():
         number=display_file.read_text().strip()
         if not number.isdecimal():raise RuntimeError('DISPLAY não disponível.')
         env['DISPLAY']=':'+number
+        desktop_env={k:v for k,v in env.items() if k not in ('LD_LIBRARY_PATH','LD_PRELOAD')}
         gate=a.output/'sharing-before-resolve.json'
         status,_=bounded(['python3','/experiment/gl-sharing-probe.py','--backend',a.backend,'--output',str(gate)],env,25,a.output/'sharing-probe.log')
         proof=json.loads(gate.read_text()) if gate.exists() else {}
@@ -116,10 +145,12 @@ def main():
             if maps.exists():
                 result['loadedLibraries']=sorted(set(l.split()[-1] for l in maps.read_text().splitlines() if any(name in l for name in ['libgallium','libRusticl','libOpenCL','libGLX_mesa','libEGL_mesa','libLLVM','libglib-2.0'])))
             if app.poll() is None:
-                status,_=bounded(['import','-window','root',str(a.output/'screen-before-sdk.png')],env,15)
+                result['onboardingActions']=advance_onboarding(a.output,desktop_env)
+                if result['onboardingActions']:time.sleep(40)
+                status,_=bounded(['import','-window','root',str(a.output/'screen-before-sdk.png')],desktop_env,15)
                 result['screenshotCaptured']=status['exitCode']==0
-                _,ocr=bounded(['tesseract',str(a.output/'screen-before-sdk.png'),'stdout'],env,15,a.output/'screen-text.txt')
-                _,titles=bounded(['xdotool','search','--onlyvisible','--name','.*','getwindowname'],env,10,a.output/'window-titles.txt')
+                _,ocr=bounded(['tesseract',str(a.output/'screen-before-sdk.png'),'stdout'],desktop_env,15,a.output/'screen-text.txt')
+                _,titles=bounded(['xdotool','search','--onlyvisible','--name','.*','getwindowname','%@'],desktop_env,10,a.output/'window-titles.txt')
                 text=(ocr+'\n'+titles).lower();result['unsupportedGpuModeObserved']=('unsupported gpu' in text or 'unsupported gpu processing mode' in text) if result['screenshotCaptured'] else None
                 result['splashColorPageObserved']='loading color page' in text
                 python=a.resolve_root/'bin/ResolvePython'
@@ -135,7 +166,7 @@ def main():
                             metadata=validate_mp4(render/'resolve-synthetic.mp4');(a.output/'ffprobe.json').write_text(json.dumps(metadata,indent=2)+'\n')
                             result.update(exportProven=True,dvipInitializationConfirmed=True,state='testado')
                         except (OSError,ValueError,subprocess.TimeoutExpired) as exc:result['validationError']=type(exc).__name__
-                bounded(['import','-window','root',str(a.output/'screen-after-sdk.png')],env,15)
+                bounded(['import','-window','root',str(a.output/'screen-after-sdk.png')],desktop_env,15)
             result['appExitCode']=app.poll()
             log.seek(0);(a.output/'application.log').write_text(sanitized(log.read(4*1024**2).decode(errors='replace')))
         if debug.exists():

@@ -71,3 +71,12 @@ class EvidenceTests(unittest.TestCase):
         r=edit_smoke.exercise(App(),Path('/synthetic-unit-only'),Path('/unused'))
         self.assertTrue(r['timelineCreated']);self.assertFalse(r['exportProven']);self.assertIn('MP4',r['reason'])
 if __name__=='__main__':unittest.main()
+
+class OnboardingSafety(unittest.TestCase):
+    def test_license_and_login_never_clicked(self):
+        from supervise import onboarding_button
+        for text in ["What's new in DaVinci Resolve Continue license agreement", "Welcome DaVinci Resolve skip sign in", "Welcome DaVinci Resolve skip activation"]:
+            self.assertIsNone(onboarding_button(text))
+    def test_unrecognized_dialog_not_clicked(self):
+        from supervise import onboarding_button
+        self.assertIsNone(onboarding_button('Error Continue'))
