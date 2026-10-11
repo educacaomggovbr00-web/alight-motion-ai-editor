@@ -1,0 +1,62 @@
+{
+  "workflowRun": "https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38097819260",
+  "commit": "39dccba980415d749e79d415b410868acd2a7119",
+  "artifact": "https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38097819260/artifacts/11686472563",
+  "state": "testado",
+  "presets": 3,
+  "reports": [
+    {
+      "preset": "dark-lyrics",
+      "state": "testado",
+      "engine": "Remotion",
+      "codec": "h264",
+      "audio": "aac",
+      "width": 540,
+      "height": 960,
+      "fps": 30,
+      "frames": 120,
+      "duration": 4.011,
+      "sha256": "cf3966f78b8c07f8c0f81cdef44dabb486d1da3ae6f4a5dd3eb976ffacbe35a7",
+      "effectDifference": 113.53143518518519,
+      "timeDifference": 4.332222222222223,
+      "deterministicSample": true
+    },
+    {
+      "preset": "emo-rap-glitch",
+      "state": "testado",
+      "engine": "Remotion",
+      "codec": "h264",
+      "audio": "aac",
+      "width": 540,
+      "height": 960,
+      "fps": 30,
+      "frames": 120,
+      "duration": 4.011,
+      "sha256": "d45d6114eb8eb538f81a7069dd3069e15d0511a3c074237068857045d4334656",
+      "effectDifference": 88.69483796296296,
+      "timeDifference": 63.6718287037037,
+      "deterministicSample": true
+    },
+    {
+      "preset": "big-text-impact",
+      "state": "testado",
+      "engine": "Remotion",
+      "codec": "h264",
+      "audio": "aac",
+      "width": 540,
+      "height": 960,
+      "fps": 30,
+      "frames": 120,
+      "duration": 4.011,
+      "sha256": "3c892d468b3e44e8de592738c10b749abe4e4bf83bd66e62cba2081e51a5529b",
+      "effectDifference": 81.03469907407407,
+      "timeDifference": 43.112314814814816,
+      "deterministicSample": true
+    }
+  ],
+  "presetDifferences": [
+    79.81405092592593,
+    35.840069444444445,
+    57.69009259259259
+  ]
+}

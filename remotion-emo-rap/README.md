@@ -2,6 +2,8 @@
 
 Editor de lyric edits verticais em React/TypeScript, renderizado **pelo Remotion**, não pelo FFmpeg sozinho. FFmpeg gera somente mídia sintética de teste, decodifica amostras e FFprobe valida a saída. Premiere, Wine, Windows e Kdenlive existentes foram preservados. Não requer computador pessoal: use Actions pelo Chrome no Moto G22.
 
+**Render real comprovado no GitHub Actions:** [execução aprovada](https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38097819260) e [MP4s de demonstração](https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/actions/runs/38097819260/artifacts/11686472563). Três presets testados em 540×960/30 FPS; mídia real e 720p/1080p ainda não foram renderizados neste teste.
+
 ## Primeiro teste pelo celular
 
 1. Entre no repositório → **Actions → Editar Emo Rap — Remotion → Run workflow**. Se o botão estiver escondido, use “Site para computador” no Chrome.
