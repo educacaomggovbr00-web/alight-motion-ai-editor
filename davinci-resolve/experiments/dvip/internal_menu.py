@@ -37,8 +37,19 @@ def invoke(output, env, run):
         if status['exitCode']:return []
         status,_=run(['convert',str(screen),'-resize','200%',str(large)],env,10)
         if status['exitCode']:return []
-        _,tsv=run(['tesseract',str(large),'stdout','--psm','11','tsv'],env,15,output/f'internal-menu-{index}.log')
-        rows=labels(tsv)
+        _,tsv=run(['tesseract',str(screen),'stdout','--psm','11','tsv'],env,15,output/f'internal-menu-{index}.log')
+        rows=labels(tsv,scale=1)
+        if not rows or (index==0 and choose(rows,'workspace',top_only=True) is None):
+            _,fallback=run(['tesseract',str(large),'stdout','--psm','6','tsv'],env,15,output/f'internal-menu-fallback-{index}.log')
+            rows+=labels(fallback,scale=2)
+        if index==0 and choose(rows,'workspace',top_only=True) is None:
+            crop=output/'internal-workspace-crop.png'
+            status,_=run(['convert',str(screen),'-crop','85x20+608+0','+repage','-resize','400%','-negate',str(crop)],env,10)
+            if status['exitCode']==0:
+                _,header=run(['tesseract',str(crop),'stdout','--psm','7','tsv'],env,15,output/'internal-workspace-crop.log')
+                for row in labels(header,scale=4):
+                    row['x']+=608
+                    rows.append(row)
         text=' '.join(r['text'] for r in rows).lower()
         if any(s in text for s in ['license agreement','terms and conditions','sign in','license key']):return []
         return rows
