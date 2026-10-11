@@ -19,9 +19,9 @@ on:
         type: string
         default: '4'
       entrada:
-        description: ZIP em secret REMOTION_INPUT_BUNDLE_URL ou demo sintetica
+        description: Demo, ZIP do repositorio ou ZIP via secret
         type: choice
-        options: [demo, secret-zip]
+        options: [demo, repo-zip, secret-zip]
         default: demo
       reduzir_flashes:
         type: boolean
@@ -80,6 +80,9 @@ jobs:
           REMOTION_INPUT_BUNDLE_URL: ${{ secrets.REMOTION_INPUT_BUNDLE_URL }}
           REMOTION_MEDIA_HOST: ${{ vars.REMOTION_MEDIA_HOST }}
         run: python3 scripts/download-input.py
+      - name: Importar ZIP presente no repositorio (publico)
+        if: inputs.entrada == 'repo-zip'
+        run: python3 scripts/import-repo-zip.py
       - name: Validar entradas e preparar composicao
         run: npm run prepare:edit
       - name: Render real Remotion
