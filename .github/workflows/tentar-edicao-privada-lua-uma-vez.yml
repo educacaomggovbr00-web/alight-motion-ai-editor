@@ -1,4 +1,4 @@
-# Teste autorizado de edição de vídeo privado com o DaVinci original.
+# Retentativa autorizada após liberação de espaço no runner do GitHub.
 # Só o acréscimo deste arquivo dispara este job; alterações posteriores
 # e outros pushes NÃO disparam o experimento pesado novamente.
 name: DaVinci original — tentar editar vídeo privado (Lua, execução única)
