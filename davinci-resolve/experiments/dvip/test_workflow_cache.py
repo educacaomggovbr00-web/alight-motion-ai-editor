@@ -45,5 +45,17 @@ class WorkflowSafety(unittest.TestCase):
         self.assertIn("INSTALLER_CACHE_HIT", source)
         self.assertIn("installer_cache.py decrypt", source)
 
+
+    def test_disk_cleanup_precedes_private_cache_restore_and_preserves_gate(self):
+        source = (ROOT / "experimentar-davinci-dvip.yml").read_text()
+        original = source.split("  original:", 1)[1].split("  source-block:", 1)[0]
+        self.assertIn("Liberar espaço de SDKs não usados antes do cache do Resolve", original)
+        self.assertLess(
+            original.index("Liberar espaço de SDKs não usados antes do cache do Resolve"),
+            original.index("Restaurar instalador do cache restrito ao repositório privado"),
+        )
+        self.assertIn("18*1024**3", original)
+        self.assertIn("sha256", original.lower())
+
 if __name__ == "__main__":
     unittest.main()
