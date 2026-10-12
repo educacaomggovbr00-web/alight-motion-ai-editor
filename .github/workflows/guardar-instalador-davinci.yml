@@ -1,0 +1,13 @@
+# This default-branch launcher exists only so GitHub exposes Run workflow on Android.
+# All Resolve software, cryptographic implementation and tests stay on the
+# experimental branch. Nothing runs until the repository owner dispatches it.
+name: DaVinci — guardar instalador no cache cifrado
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cache-installer:
+    name: Baixar instalador oficial e salvar somente cache criptografado
+    uses: educacaomggovbr00-web/alight-motion-ai-editor/.github/workflows/cache-installer-davinci.yml@experiment/davinci-21-1-1-software-dvip
+    secrets: inherit
