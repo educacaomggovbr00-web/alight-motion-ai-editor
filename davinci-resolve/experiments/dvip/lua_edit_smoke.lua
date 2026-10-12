@@ -107,7 +107,7 @@ local function exercise()
         fail("invalid-bounded-test-configuration")
         return
     end
-    if not bmd or not bmd.writestring then
+    if not bmd or type(bmd.writefile) ~= 'function' then
         result.reason = "bmd-writefile-unavailable"
         print("CODEX LUA: result transport unavailable")
         return
