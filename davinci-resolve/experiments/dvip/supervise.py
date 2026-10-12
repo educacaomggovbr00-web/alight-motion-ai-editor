@@ -2,6 +2,7 @@
 """Bounded original-app experiment: independent GL gate, UI, SDK, ffprobe."""
 import argparse, hashlib, json, os, re, resource, signal, subprocess, sys, tempfile, time, shutil, math
 from internal_menu import invoke as invoke_internal_script
+from lua_console import invoke as invoke_lua_console
 from pathlib import Path
 from source import BINARY_SHA256, digest
 
@@ -177,7 +178,11 @@ def main():
         global_utility=a.resolve_root/'Fusion/Scripts/Utility'
         global_utility.mkdir(parents=True,exist_ok=True)
         (global_utility/'CodexSyntheticSmoke.py').write_text((Path(__file__).parent/'edit_smoke.py').read_text())
-        result['scriptLocationsPrepared']=['user Utility','all-users Utility']
+        # On Resolve 21.1 Free the Python Scripts menu may show 'No Scripts'.
+        # Provide a read-only Lua canary for the built-in Console as a separate test.
+        lua_probe=global_utility/'CodexLuaProbe.lua'
+        lua_probe.write_text((Path(__file__).parent/'lua_probe.lua').read_text())
+        result['scriptLocationsPrepared']=['user Utility','all-users Utility','all-users Lua diagnostic']
         debug=Path.home()/'.local/share/DaVinciResolve/logs/ResolveDebug.txt'
         offset=debug.stat().st_size if debug.exists() else 0
         with tempfile.TemporaryFile() as log:
@@ -227,7 +232,12 @@ def main():
                     for name in ['sdk-result.json','sdk-progress.json','sdk-started.json']:(render/name).unlink(missing_ok=True)
                     result['internalScriptMenu']=invoke_internal_script(a.output,desktop_env,bounded)
                     if not result['internalScriptMenu'].get('scriptMenuInvoked') and app.poll() is None:
-                        bounded(['gdb','--batch','-ex','set pagination off','-ex','thread apply all bt 12','-ex','detach','-p',str(app.pid)],desktop_env,20,a.output/'fusion-script-thread-backtrace.log')
+                        result['luaConsole']=invoke_lua_console(a.output,desktop_env,bounded,lua_probe)
+                        # An accessible in-process Lua API is not proof of script execution,
+                        # successful editing, Studio access or a native render.
+                        result['luaApiReachable']=result['luaConsole'].get('apiConnected') is True
+                        if not result['luaApiReachable'] and app.poll() is None:
+                            bounded(['gdb','--batch','-ex','set pagination off','-ex','thread apply all bt 12','-ex','detach','-p',str(app.pid)],desktop_env,20,a.output/'fusion-script-thread-backtrace.log')
                     if result['internalScriptMenu'].get('scriptMenuInvoked'):
                         deadline=time.monotonic()+200
                         while not sdk.exists() and app.poll() is None and time.monotonic()<deadline:time.sleep(1)
