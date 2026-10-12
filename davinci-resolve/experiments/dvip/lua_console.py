@@ -107,7 +107,7 @@ def invoke(output, env, run, script, native_edit_script=None):
                     result['nativeEdit'] = edit
                     if not result['apiConnected']:
                         edit['reason'] = 'API Lua ainda sem conexão.'
-                    elif Path(native_edit_script).name != EDIT_SCRIPT_NAME or not Path(native_edit_script).is_file():
+                    elif Path(native_edit_script) != Path('/opt/resolve/Fusion/Scripts/Utility') / EDIT_SCRIPT_NAME or not Path(native_edit_script).is_file():
                         edit['reason'] = 'Arquivo Lua de edição não permitido ou ausente.'
                     else:
                         # The read-only probe returned before submitting any editing command.
