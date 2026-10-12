@@ -9,10 +9,14 @@ from pathlib import Path
 from internal_menu import labels, choose
 
 SCRIPT_NAME = 'CodexLuaProbe.lua'
+EDIT_SCRIPT_NAME = 'CodexLuaEditSmoke.lua'
 
 def command(script):
-    """Only the diagnostic script in the expected installation directory."""
-    expected = Path('/opt/resolve/Fusion/Scripts/Utility') / SCRIPT_NAME
+    """Only an explicitly allowlisted Lua file can be executed."""
+    expected_dir = Path('/opt/resolve/Fusion/Scripts/Utility')
+    if Path(script).name not in (SCRIPT_NAME, EDIT_SCRIPT_NAME):
+        raise ValueError('Not an approved script')
+    expected = expected_dir / Path(script).name
     if Path(script) != expected:
         raise ValueError('Unexpected Lua diagnostic script path')
     return 'dofile("' + str(expected) + '")'
@@ -24,7 +28,7 @@ def lua_prompt(rows):
             return item
     return None
 
-def invoke(output, env, run, script):
+def invoke(output, env, run, script, native_edit_script=None):
     result = {'attempted': False, 'consoleOpened': False, 'commandSubmitted': False, 'apiConnected': False}
     env = dict(env, OMP_THREAD_LIMIT='1', OMP_NUM_THREADS='1')
     try:
@@ -98,6 +102,39 @@ def invoke(output, env, run, script):
                 result['version'] = data.get('version')
                 result['product'] = data.get('product')
                 result['reason'] = 'Probe Lua respondeu; render não foi testado.'
+                if native_edit_script is not None:
+                    edit = {'requested': True, 'submitted': False, 'resultObserved': False}
+                    result['nativeEdit'] = edit
+                    if not result['apiConnected']:
+                        edit['reason'] = 'API Lua ainda sem conexão.'
+                    elif Path(native_edit_script).name != EDIT_SCRIPT_NAME or not Path(native_edit_script).is_file():
+                        edit['reason'] = 'Arquivo Lua de edição não permitido ou ausente.'
+                    else:
+                        # The read-only probe returned before submitting any editing command.
+                        # Re-check a visible Lua prompt: a stale console is NOT enough.
+                        edit_prompt = lua_prompt(capture('edit-prompt'))
+                        if edit_prompt is None:
+                            edit['reason'] = 'Prompt Lua de edição não reconhecido.'
+                        elif not action(['xdotool', 'mousemove', '--sync', str(edit_prompt['x'] + 65), str(edit_prompt['y']), 'click', '1']):
+                            edit['reason'] = 'Campo do Console não pôde receber foco.'
+                        elif not action(['xdotool', 'type', '--clearmodifiers', '--delay', '10', '--', command(native_edit_script)]):
+                            edit['reason'] = 'Comando de edição não digitado.'
+                        elif not action(['xdotool', 'key', 'Return']):
+                            edit['reason'] = 'Comando de edição não enviado.'
+                        else:
+                            edit['submitted'] = True
+                            report = output / 'render' / 'sdk-result.json'
+                            # The supervisor's whole container also has an independent timeout.
+                            for _ in range(175):
+                                if report.is_file():
+                                    try:
+                                        edit['resultObserved'] = json.loads(report.read_text()).get('invocationContext') == 'internal-lua-console'
+                                    except (OSError, ValueError):
+                                        edit['reason'] = 'Relatório Lua inválido.'
+                                    break
+                                time.sleep(1)
+                            if not edit['resultObserved'] and not edit.get('reason'):
+                                edit['reason'] = 'Execução Lua não concluiu no prazo.'
                 return result
             except (OSError, ValueError):
                 break
