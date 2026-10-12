@@ -28,7 +28,7 @@ local function safe_string(value)
 end
 
 local function write_checkpoint(is_final)
-    if not output or not bmd or not bmd.writestring then return false end
+    if not output or not bmd or type(bmd.writefile) ~= 'function' then return false end
     local function flag(name)
         return '"' .. name .. '":' .. (result[name] and "true" or "false")
     end
@@ -50,8 +50,12 @@ local function write_checkpoint(is_final)
         '"renderStatus":{"JobStatus":"' .. safe_string(result.renderStatus or "") .. '"}' ..
         '}'
     local name = is_final and "sdk-result.json" or "sdk-progress.json"
-    local ok = pcall(function() bmd.writestring(output .. '/' .. name, encoded) end)
-    return ok
+    -- The Fusion writestring() API produces a serialized string, not a file.
+    -- Write the bounded report to disk through the file API, checking its result.
+    local ok, written = pcall(function()
+        return bmd.writefile(output .. '/' .. name, encoded)
+    end)
+    return ok and written == true
 end
 
 local function fail(reason)
@@ -104,7 +108,7 @@ local function exercise()
         return
     end
     if not bmd or not bmd.writestring then
-        result.reason = "bmd-writestring-unavailable"
+        result.reason = "bmd-writefile-unavailable"
         print("CODEX LUA: result transport unavailable")
         return
     end

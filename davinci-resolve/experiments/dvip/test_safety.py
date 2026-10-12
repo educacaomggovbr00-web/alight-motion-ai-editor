@@ -200,3 +200,12 @@ class LuaNativeEditSafety(unittest.TestCase):
                          capture_output=True,text=True,timeout=8)
         self.assertEqual(p.returncode,2)
         self.assertIn('apenas com mídia sintética',p.stderr)
+
+class LuaFileTransportSafety(unittest.TestCase):
+    def test_report_writer_is_file_api_not_table_serialization(self):
+        root=Path(__file__).parent
+        for name in ['lua_probe.lua','lua_edit_smoke.lua']:
+            source=(root/name).read_text()
+            self.assertIn('bmd.writefile(',source)
+            self.assertNotIn('bmd.writestring(',source.split('-- writestring(table)')[0] if name == 'lua_probe.lua' else source.split('-- The Fusion writestring()')[0])
+
