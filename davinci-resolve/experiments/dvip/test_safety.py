@@ -119,10 +119,10 @@ class LuaConsoleSafety(unittest.TestCase):
 
     def test_reconstruct_separated_lua_prompt_with_weak_symbol_confidence(self):
         def word(number, label, confidence, x, y, width):
-            return '\\t'.join([
+            return '\t'.join([
                 '5','1','1','1','1',str(number),str(x),str(y),
                 str(width),'36',str(confidence),label])
-        sample = '\\n'.join([
+        sample = '\n'.join([
             word(1,'Lua',91,1120,1312,60),
             word(2,'>',9,1186,1313,24)])
         rows=lua_console.prompt_rows_from_tsv(sample,scale=2)
@@ -132,11 +132,11 @@ class LuaConsoleSafety(unittest.TestCase):
         self.assertIsNotNone(lua_console.lua_prompt(rows))
         # A tab title, ordinary Lua text or a visually unrelated '>' must
         # never trigger xdotool typing.
-        invalid='\\n'.join([
+        invalid='\n'.join([
             word(1,'Lua',88,1120,1312,60),
             word(2,'script',94,1186,1313,70)])
         self.assertEqual(lua_console.prompt_rows_from_tsv(invalid),[])
-        distant='\\n'.join([
+        distant='\n'.join([
             word(1,'Lua',88,1120,1312,60),
             word(2,'>',20,2200,1313,24)])
         self.assertEqual(lua_console.prompt_rows_from_tsv(distant),[])
