@@ -122,7 +122,11 @@ local function exercise()
     if not app then fail("resolve-api-unavailable"); return end
     result.apiConnected = true
     result.reason = "api-connected"
-    write_checkpoint(false)
+    if not write_checkpoint(false) then
+        -- Without observable status, do not continue modifying a project or rendering.
+        result.reason = 'report-transport-failed'
+        return
+    end
 
     local version = app:GetVersion() or {}
     if version[1] ~= 21 or version[2] ~= 1 or version[3] ~= 1 then
@@ -136,7 +140,11 @@ local function exercise()
     if not project then fail("create-project-failed"); return end
     result.projectCreated = true
     result.reason = "project-created"
-    write_checkpoint(false)
+    if not write_checkpoint(false) then
+        -- Without observable status, do not continue modifying a project or rendering.
+        result.reason = 'report-transport-failed'
+        return
+    end
 
     local frame_rate = "30"
     if not project:SetSetting("timelineFrameRate", frame_rate) or
@@ -151,7 +159,11 @@ local function exercise()
     if not clips or not clips[1] then fail("import-media-failed"); return end
     result.mediaImported = true
     result.reason = "media-imported"
-    write_checkpoint(false)
+    if not write_checkpoint(false) then
+        -- Without observable status, do not continue modifying a project or rendering.
+        result.reason = 'report-transport-failed'
+        return
+    end
 
     local timeline = pool:CreateTimelineFromClips("Codex_Lua_Timeline", clips)
     if not timeline or not project:SetCurrentTimeline(timeline) then
@@ -160,7 +172,11 @@ local function exercise()
     end
     result.timelineCreated = true
     result.reason = "timeline-created"
-    write_checkpoint(false)
+    if not write_checkpoint(false) then
+        -- Without observable status, do not continue modifying a project or rendering.
+        result.reason = 'report-transport-failed'
+        return
+    end
 
     -- A zoom is optional: it must be reported as applied only if verified.
     local items = timeline:GetItemListInTrack("video", 1) or {}
@@ -177,7 +193,11 @@ local function exercise()
         end
     end
     result.projectSaved = manager:SaveProject() == true
-    write_checkpoint(false)
+    if not write_checkpoint(false) then
+        -- Without observable status, do not continue modifying a project or rendering.
+        result.reason = 'report-transport-failed'
+        return
+    end
 
     local fmt, codec = find_available_codec(project)
     if not fmt then fail("no-advertised-supported-render-codec"); return end
@@ -202,7 +222,11 @@ local function exercise()
         fail("bounded-wait-unavailable")
         return
     end
-    write_checkpoint(false)
+    if not write_checkpoint(false) then
+        -- Without observable status, do not continue modifying a project or rendering.
+        result.reason = 'report-transport-failed'
+        return
+    end
     if not project:StartRendering({job}) then
         fail("render-start-rejected")
         return
