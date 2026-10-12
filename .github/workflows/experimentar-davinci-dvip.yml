@@ -50,10 +50,9 @@ jobs:
           lookup-only: true
       - name: Verificar URL oficial somente se não houver cache
         id: source
-        env:
-          DAVINCI_RESOLVE_LINUX_URL: ${{ secrets.DAVINCI_RESOLVE_LINUX_URL }}
         shell: bash
         env:
+          DAVINCI_RESOLVE_LINUX_URL: ${{ secrets.DAVINCI_RESOLVE_LINUX_URL }}
           INSTALLER_CACHE_HIT: ${{ steps.installer-lookup.outputs.cache-hit }}
         run: |
           set -euo pipefail
