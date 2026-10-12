@@ -135,7 +135,7 @@ assert(state.codecLookups[1]=="mov")
 reset("no-codec",true,true)
 dofile(root.."lua_edit_smoke.lua")
 assert(not state.renderStarted)
-assert(contains(report("sdk-result.json"),'"reason":"no_advertised_supported_render_codec"'))
+assert(contains(report("sdk-result.json"),'"reason":"no-advertised-supported-render-codec"'))
 assert(not contains(report("sdk-result.json"),'"renderProducedFile":true'))
 
 -- No file API: report must remain absent rather than falsely claiming success.
