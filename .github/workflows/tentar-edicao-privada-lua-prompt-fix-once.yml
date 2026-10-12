@@ -1,0 +1,20 @@
+# One user-authorized heavy attempt only. This path is never updated.
+# No proprietary installer, media file, download URLs or secrets here.
+name: DaVinci — tentar editar vídeo privado após corrigir prompt Lua
+on:
+  push:
+    branches: [experiment/davinci-21-1-1-software-dvip]
+    paths: ['.github/workflows/tentar-edicao-privada-lua-prompt-fix-once.yml']
+permissions:
+  contents: read
+concurrency:
+  group: davinci-20261012-once-prompt-fix
+  cancel-in-progress: false
+jobs:
+  edicao-nativa:
+    if: github.event.repository.private == true
+    uses: ./.github/workflows/experimentar-davinci-dvip.yml
+    with:
+      private_media: true
+      lua_native_edit: true
+    secrets: inherit
