@@ -28,3 +28,5 @@ jobs:
     with:
       private_media: ${{ github.event_name == 'workflow_dispatch' && inputs.private_media }}
     secrets: inherit
+
+# Verificar abertura após limitar OCR da introdução; entrada sintética sem dados pessoais.
