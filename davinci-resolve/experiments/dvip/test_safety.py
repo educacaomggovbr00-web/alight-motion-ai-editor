@@ -106,6 +106,61 @@ class LuaConsoleSafety(unittest.TestCase):
         self.assertIsNone(lua_console.lua_prompt([{'key':'console','text':'Console','x':20,'y':500}]))
         self.assertIsNotNone(lua_console.lua_prompt([{'key':'lua','text':'Lua>','x':35,'y':640}]))
 
+    def test_right_docked_lua_prompt_is_valid_but_toolbar_label_is_not(self):
+        self.assertIsNone(lua_console.lua_prompt([
+            {'key':'lua', 'text':'Lua', 'x':750, 'y':80},
+            {'key':'lua', 'text':'Lua for beginners', 'x':550, 'y':640},
+            {'key':'python', 'text':'Python>', 'x':550, 'y':640},
+        ]))
+        self.assertEqual(lua_console.lua_prompt([
+            {'key':'lua', 'text':'Lua>', 'x':45, 'y':230},
+            {'key':'lua', 'text':'Lua >', 'x':630, 'y':680},
+        ])['x'],630)
+
+    def test_reconstruct_separated_lua_prompt_with_weak_symbol_confidence(self):
+        def word(number, label, confidence, x, y, width):
+            return '\\t'.join([
+                '5','1','1','1','1',str(number),str(x),str(y),
+                str(width),'36',str(confidence),label])
+        sample = '\\n'.join([
+            word(1,'Lua',91,1120,1312,60),
+            word(2,'>',9,1186,1313,24)])
+        rows=lua_console.prompt_rows_from_tsv(sample,scale=2)
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]['key'],'lua')
+        self.assertGreater(rows[0]['x'],250)
+        self.assertIsNotNone(lua_console.lua_prompt(rows))
+        # A tab title, ordinary Lua text or a visually unrelated '>' must
+        # never trigger xdotool typing.
+        invalid='\\n'.join([
+            word(1,'Lua',88,1120,1312,60),
+            word(2,'script',94,1186,1313,70)])
+        self.assertEqual(lua_console.prompt_rows_from_tsv(invalid),[])
+        distant='\\n'.join([
+            word(1,'Lua',88,1120,1312,60),
+            word(2,'>',20,2200,1313,24)])
+        self.assertEqual(lua_console.prompt_rows_from_tsv(distant),[])
+
+    def test_right_docked_prompt_allows_only_allowlisted_probe_command(self):
+        calls=[]
+        def runner(argv,env,seconds,output=None):
+            calls.append(argv)
+            return {'exitCode':0,'timeLimitReached':False},''
+        workspace=[{'key':'workspace','text':'Workspace','x':635,'y':11}]
+        console=[{'key':'console','text':'Console','x':670,'y':180}]
+        prompt=[{'key':'lua','text':'Lua >','x':640,'y':680}]
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(lua_console.Path,'is_file',return_value=True), \\
+                 patch.object(lua_console,'labels',side_effect=[workspace,console,prompt]), \\
+                 patch.object(lua_console.time,'sleep'):
+                result=lua_console.invoke(Path(tmp),{},runner,self.SCRIPT)
+        self.assertTrue(result['consoleOpened'])
+        self.assertTrue(result['commandSubmitted'])
+        self.assertEqual(sum(cmd[:2]==['xdotool','type'] for cmd in calls),1)
+        self.assertEqual(result['promptDetection'][0]['selectedX'],640)
+        self.assertEqual(result['promptDetection'][0]['explicitLuaPrompt'],True)
+        self.assertFalse(result['apiConnected'])
+
     def test_missing_lua_prompt_never_types_or_executes(self):
         calls=[]
         def runner(argv, env, seconds, output=None):
