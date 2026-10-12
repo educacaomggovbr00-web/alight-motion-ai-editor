@@ -89,7 +89,7 @@ def advance_onboarding(output, env):
         # dialog as Xvfb grows to Full HD so the Console is not clipped.
         if "what's new in davinci resolve" in text.lower() and 'continue' not in text.lower():
             size_status, size_text=bounded(['identify','-format','%wx%h',str(screen)],env,8)
-            sizes=re.fullmatch(r'(\\d{3,4})x(\\d{3,4})',size_text.strip()) if size_status['exitCode']==0 else None
+            sizes=re.fullmatch(r'(\d{3,4})x(\d{3,4})',size_text.strip()) if size_status['exitCode']==0 else None
             width,height=(int(sizes[1]),int(sizes[2])) if sizes else (1280,720)
             footer_x=max(0,670+(width-1280)//2)
             footer_y=max(0,584+(height-720)//2)

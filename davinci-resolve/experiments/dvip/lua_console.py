@@ -124,7 +124,7 @@ def invoke(output, env, run, script, native_edit_script=None):
             size_status, dimensions = run(
                 ['identify', '-format', '%wx%h', str(screenshot)], env, 8)
             dimensions = dimensions.strip() if size_status['exitCode'] == 0 else ''
-            match = re.fullmatch(r'(\\d{3,4})x(\\d{3,4})', dimensions)
+            match = re.fullmatch(r'(\d{3,4})x(\d{3,4})', dimensions)
             if lua_prompt(rows) is None and match:
                 width, height = int(match[1]), int(match[2])
                 top = 2 * height // 3
