@@ -77,7 +77,9 @@ def advance_onboarding(output, env):
         screen=output/f'onboarding-{index}.png'
         status,_=bounded(['import','-window','root',str(screen)],env,10)
         if status['exitCode']:break
-        _,tsv=bounded(['tesseract',str(screen),'stdout','--psm','6','tsv'],env,15,output/f'onboarding-{index}.log')
+        ocr_status,tsv=bounded(['tesseract',str(screen),'stdout','--psm','6','tsv'],env,30,output/f'onboarding-{index}.log')
+        if ocr_status['exitCode']:
+            steps.append({'screen':index,'ocrFailed':True,'timeLimitReached':ocr_status['timeLimitReached'],'clicked':False});break
         rows=[line.split('\t') for line in tsv.splitlines()[1:]]
         words=[r for r in rows if len(r)>=12 and r[11].strip()]
         text=' '.join(r[11] for r in words)
@@ -139,6 +141,7 @@ def main():
         if not number.isdecimal():raise RuntimeError('DISPLAY não disponível.')
         env['DISPLAY']=':'+number
         desktop_env={k:v for k,v in env.items() if k not in ('LD_LIBRARY_PATH','LD_PRELOAD')}
+        desktop_env.update(OMP_THREAD_LIMIT='1',OMP_NUM_THREADS='1')
         gate=a.output/'sharing-before-resolve.json'
         status,_=bounded(['python3','/experiment/gl-sharing-probe.py','--backend',a.backend,'--output',str(gate)],env,25,a.output/'sharing-probe.log')
         proof=json.loads(gate.read_text()) if gate.exists() else {}
