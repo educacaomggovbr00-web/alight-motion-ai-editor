@@ -4,7 +4,7 @@ local app = resolve
 if not app and bmd and bmd.scriptapp then
     app = bmd.scriptapp("Resolve")
 end
-if output and bmd and bmd.writestring then
+if output and bmd and type(bmd.writefile) == 'function' then
     local connected = app ~= nil
     local version, product = "", ""
     if connected then
@@ -19,5 +19,12 @@ if output and bmd and bmd.writestring then
     local state = connected and "true" or "false"
     local body = '{"apiConnected":' .. state .. ',"language":"lua","version":"' ..
       version .. '","product":"' .. product .. '"}'
-    bmd.writestring(output .. "/lua-console-result.json", body)
+    -- writestring(table) serializes in memory; writefile(path, contents) writes to disk.
+    -- A failed or unavailable file transport must NOT be reported as API success.
+    local ok, written = pcall(function()
+        return bmd.writefile(output .. "/lua-console-result.json", body)
+    end)
+    if not ok or written ~= true then
+        print("CODEX LUA: unable to persist read-only API probe")
+    end
 end

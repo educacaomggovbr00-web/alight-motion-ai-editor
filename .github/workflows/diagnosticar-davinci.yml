@@ -28,6 +28,7 @@ jobs:
           sudo apt-get install -y -qq --no-install-recommends lua5.1
           luac5.1 -p davinci-resolve/experiments/dvip/lua_probe.lua
           luac5.1 -p davinci-resolve/experiments/dvip/lua_edit_smoke.lua
+          lua5.1 davinci-resolve/experiments/dvip/test_lua_smoke.lua
       - name: Inspecionar recursos reais do runner
         run: python3 davinci-resolve/preflight.py --output davinci-resolve/runtime/host.json
       - uses: actions/upload-artifact@v4
