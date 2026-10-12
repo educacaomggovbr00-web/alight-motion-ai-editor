@@ -198,12 +198,15 @@ jobs:
           trap 'docker rm -f "$probe_name" >/dev/null 2>&1 || true' EXIT
           extra=()
           native_args=()
-          if [[ '${{ inputs.lua_native_edit }}' == true && '${{ inputs.private_media }}' != true ]]; then
+          if [[ '${{ inputs.lua_native_edit }}' == true ]]; then
             native_args+=(--lua-native-edit)
           fi
           if [[ '${{ inputs.private_media }}' == true ]]; then
             extra=(-v "$RUNNER_TEMP/davinci-user/prepared:/input:ro")
-            native_args=(--input-video /input/input-prepared.mov --width 540 --height 960 --duration 15)
+            native_args+=(--input-video /input/input-prepared.mov --width 540 --height 960 --duration 15)
+            if [[ '${{ inputs.lua_native_edit }}' == true ]]; then
+              native_args+=(--allow-private-lua-edit)
+            fi
           fi
           for profile in glx; do
             mkdir -p "dvip-output/$profile"

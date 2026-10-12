@@ -22,13 +22,33 @@ local result = {
     reason = "not-started"
 }
 
+-- Write machine-readable JSON only to the explicitly configured output directory.
+-- Fusion's bmd.writefile serializes Lua tables, so prefer Lua's normal text I/O.
+local function persist_json(path, body)
+    if io and type(io.open) == "function" then
+        local ok, success = pcall(function()
+            local file = io.open(path, "wb")
+            if not file then return false end
+            local written = file:write(body) ~= nil
+            local closed = file:close()
+            return written and closed ~= nil
+        end)
+        if ok and success then return true end
+    end
+    if bmd and type(bmd.writefile) == "function" then
+        local ok, success = pcall(function() return bmd.writefile(path, body) end)
+        return ok and success == true
+    end
+    return false
+end
+
 local function safe_string(value)
     local raw = tostring(value or "")
     return string.gsub(raw, '[^%w%s%._%-]', '_'):sub(1,120)
 end
 
 local function write_checkpoint(is_final)
-    if not output or not bmd or type(bmd.writefile) ~= 'function' then return false end
+    if not output then return false end
     local function flag(name)
         return '"' .. name .. '":' .. (result[name] and "true" or "false")
     end
@@ -50,12 +70,7 @@ local function write_checkpoint(is_final)
         '"renderStatus":{"JobStatus":"' .. safe_string(result.renderStatus or "") .. '"}' ..
         '}'
     local name = is_final and "sdk-result.json" or "sdk-progress.json"
-    -- The Fusion writestring() API produces a serialized string, not a file.
-    -- Write the bounded report to disk through the file API, checking its result.
-    local ok, written = pcall(function()
-        return bmd.writefile(output .. '/' .. name, encoded)
-    end)
-    return ok and written == true
+    return persist_json(output .. '/' .. name, encoded)
 end
 
 local function fail(reason)
@@ -107,8 +122,9 @@ local function exercise()
         fail("invalid-bounded-test-configuration")
         return
     end
-    if not bmd or type(bmd.writefile) ~= 'function' then
-        result.reason = "bmd-writefile-unavailable"
+    if not bmd or (not (io and type(io.open) == 'function') and
+                   type(bmd.writefile) ~= 'function') then
+        result.reason = "file-transport-unavailable"
         print("CODEX LUA: result transport unavailable")
         return
     end
