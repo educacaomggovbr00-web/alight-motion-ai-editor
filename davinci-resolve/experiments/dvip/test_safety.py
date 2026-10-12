@@ -1,7 +1,7 @@
 import io, json, os, tempfile, unittest, urllib.parse, zipfile
 from pathlib import Path
 from unittest.mock import patch
-import source, supervise, edit_smoke
+import source, supervise, edit_smoke, lua_console
 
 class SourceTests(unittest.TestCase):
     def test_official_expiration(self):
@@ -92,3 +92,44 @@ class MenuSafety(unittest.TestCase):
         from internal_menu import choose
         rows=[{'key':'workspace','text':'Workspace','x':300,'y':200}]
         self.assertIsNone(choose(rows,'workspace',top_only=True))
+
+class LuaConsoleSafety(unittest.TestCase):
+    SCRIPT='/opt/resolve/Fusion/Scripts/Utility/CodexLuaProbe.lua'
+
+    def test_command_is_pinned_to_diagnostic_file(self):
+        self.assertEqual(lua_console.command(self.SCRIPT), 'dofile("'+self.SCRIPT+'")')
+        for path in ['/tmp/arbitrary.lua', self.SCRIPT+'; os.execute("x")']:
+            with self.assertRaises(ValueError):lua_console.command(path)
+
+    def test_only_a_spatially_plausible_lua_prompt_is_accepted(self):
+        self.assertIsNone(lua_console.lua_prompt([{'key':'lua','text':'Lua','x':500,'y':20}]))
+        self.assertIsNone(lua_console.lua_prompt([{'key':'console','text':'Console','x':20,'y':500}]))
+        self.assertIsNotNone(lua_console.lua_prompt([{'key':'lua','text':'Lua>','x':35,'y':640}]))
+
+    def test_missing_lua_prompt_never_types_or_executes(self):
+        calls=[]
+        def runner(argv, env, seconds, output=None):
+            calls.append(argv)
+            return {'exitCode':0,'timeLimitReached':False}, ''
+        workspace=[{'key':'workspace','text':'Workspace','x':600,'y':11}]
+        console=[{'key':'console','text':'Console','x':640,'y':250}]
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(lua_console.Path,'is_file',return_value=True), \
+                 patch.object(lua_console,'labels',side_effect=[workspace,console,[]]), \
+                 patch.object(lua_console.time,'sleep'):
+                result=lua_console.invoke(Path(tmp),{},runner,self.SCRIPT)
+        self.assertTrue(result['consoleOpened'])
+        self.assertFalse(result['commandSubmitted'])
+        self.assertFalse(any('type' in argv for argv in calls))
+
+    def test_unrecognized_workspace_never_types(self):
+        calls=[]
+        def runner(argv, env, seconds, output=None):
+            calls.append(argv)
+            return {'exitCode':0,'timeLimitReached':False}, ''
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(lua_console.Path,'is_file',return_value=True), \
+                 patch.object(lua_console,'labels',return_value=[]):
+                result=lua_console.invoke(Path(tmp),{},runner,self.SCRIPT)
+        self.assertFalse(result['attempted'])
+        self.assertFalse(any('type' in argv for argv in calls))
