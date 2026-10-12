@@ -7,15 +7,6 @@ on:
         description: 'Usar vídeo privado dos segredos (45–60 s; saída protegida por senha)'
         type: boolean
         default: false
-  push:
-    branches: ['experiment/davinci-21-1-1-software-dvip']
-    paths:
-      - '.github/workflows/testar-mesa-software-sharing.yml'
-      - '.github/workflows/experimentar-davinci-dvip.yml'
-      - '.github/actions/mesa-dvip-cache/**'
-      - '.github/actions/resolve-deps-cache/**'
-      - 'davinci-resolve/experiments/dvip/*.py'
-      - 'davinci-resolve/experiments/dvip/*Dockerfile'
 concurrency:
   group: davinci-original-dvip-experimental
   cancel-in-progress: false
@@ -23,7 +14,7 @@ permissions:
   contents: read
 jobs:
   experiment:
-    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[mesa-cache-only]')
+    if: github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/experimentar-davinci-dvip.yml
     with:
       private_media: ${{ github.event_name == 'workflow_dispatch' && inputs.private_media }}

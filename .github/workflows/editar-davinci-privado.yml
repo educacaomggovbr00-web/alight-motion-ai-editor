@@ -1,11 +1,6 @@
 name: DaVinci — conferir entrada e editar mídia protegida (experimental)
 on:
   workflow_dispatch:
-  push:
-    branches: ['experiment/davinci-21-1-1-software-dvip']
-    paths:
-      - '.github/workflows/editar-davinci-privado.yml'
-      - 'davinci-resolve/experiments/dvip/PRIVATE-RUN.json'
 permissions:
   contents: read
 concurrency:
@@ -36,7 +31,7 @@ jobs:
           fi
   edit:
     needs: input
-    if: needs.input.outputs.available == 'true'
+    if: github.event_name == 'workflow_dispatch' && needs.input.outputs.available == 'true'
     uses: ./.github/workflows/experimentar-davinci-dvip.yml
     with:
       private_media: true
