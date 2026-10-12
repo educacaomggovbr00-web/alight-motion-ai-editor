@@ -1,0 +1,31 @@
+# One-off non-downloading probe: verifies that cache saved on main is usable
+# from the experimental branch, without restoring multi-GB proprietary bytes.
+name: DaVinci — verificar cache privado compartilhado sem download
+on:
+  push:
+    branches: [experiment/davinci-21-1-1-software-dvip]
+    paths: ['.github/workflows/verificar-cache-privado-davinci-uma-vez.yml']
+permissions:
+  contents: read
+jobs:
+  verificar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verificar cache privado no servidor GitHub, sem baixar o instalador
+        if: ${{ github.event.repository.private == true }}
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/davinci-installer-private-cache
+          key: davinci-2111-private-run-sha256-6ed698d0b1bd7fe2fa97076fae0c24f9e0cdd0fdeaf0cfea9a8a3df730a48a15-v1
+          lookup-only: true
+      - name: Bloquear se cache não ficou visível nesta branch
+        env:
+          REPO_PRIVATE: ${{ github.event.repository.private }}
+          CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+        run: |
+          set -euo pipefail
+          [[ "$REPO_PRIVATE" == 'true' && "$CACHE_HIT" == 'true' ]] ||
+            { echo 'Cache privado não disponível nesta branch.'; exit 2; }
+          echo 'Cache do DaVinci original detectado e reutilizável pela branch experimental, sem novo download.' >> "$GITHUB_STEP_SUMMARY"
