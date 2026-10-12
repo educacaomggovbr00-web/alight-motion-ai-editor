@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   guardar:
-    if: ${{ github.event.repository.private == true && contains(github.event.head_commit.added, '.github/workflows/obter-resolve-cache-privado-temporario.yml') }}
+    if: ${{ github.event.repository.private == true }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
