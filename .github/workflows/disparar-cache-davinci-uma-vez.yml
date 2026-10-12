@@ -1,0 +1,15 @@
+# Lançamento pontual autorizado pelo proprietário em 12/10/2026.
+# Dispara somente quando este arquivo é ADICIONADO à main.
+# Nada neste workflow inclui URLs assinadas, senhas ou instaladores.
+name: DaVinci — baixar instalador e criar cache cifrado (uma vez)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/disparar-cache-davinci-uma-vez.yml'
+permissions:
+  contents: read
+jobs:
+  guardar:
+    uses: educacaomggovbr00-web/alight-motion-ai-editor/.github/workflows/cache-installer-davinci.yml@experiment/davinci-21-1-1-software-dvip
+    secrets: inherit
