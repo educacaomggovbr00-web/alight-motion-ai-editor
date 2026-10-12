@@ -59,7 +59,7 @@ def validate_native(path,fmt,width=640,height=360,expected_duration=3):
     if p.returncode:raise ValueError('Render nativo não legível.')
     data=json.loads(p.stdout);video=next((s for s in data['streams'] if s['codec_type']=='video'),{});audio=next((s for s in data['streams'] if s['codec_type']=='audio'),{})
     n,d=video.get('avg_frame_rate','0/1').split('/');rate=float(n)/float(d)
-    allowed=('h264',) if fmt=='mp4' else ('dnxhd',)
+    allowed=('h264',) if fmt=='mp4' else ('dnxhd','prores')
     if video.get('codec_name') not in allowed or video.get('width')!=width or video.get('height')!=height or abs(rate-30)>.001 or abs(float(data['format']['duration'])-expected_duration)>.25 or not audio:
         raise ValueError('Render nativo fora da especificação de vídeo/áudio.')
     return data
@@ -107,7 +107,8 @@ def advance_onboarding(output, env):
     return steps
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--resolve-root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--backend',choices=['glx','egl'],required=True);p.add_argument('--input-video',type=Path);p.add_argument('--width',type=int,default=640);p.add_argument('--height',type=int,default=360);p.add_argument('--duration',type=float,default=3);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--resolve-root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--backend',choices=['glx','egl'],required=True);p.add_argument('--input-video',type=Path);p.add_argument('--width',type=int,default=640);p.add_argument('--height',type=int,default=360);p.add_argument('--duration',type=float,default=3);p.add_argument('--lua-native-edit',action='store_true');a=p.parse_args()
+    if a.lua_native_edit and a.input_video is not None:p.error('Lua native edit apenas com mídia sintética nesta fase.')
     if (a.width,a.height) not in ((640,360),(540,960)) or not math.isfinite(a.duration) or not 1<=a.duration<=30:p.error('Formato/duração fora dos limites.')
     a.output.mkdir(parents=True,exist_ok=True);result={'state':'bloqueado','profile':a.backend,'resolveStarted':False,'glSharingPassed':False,'uiFunctionalProven':False,'dvipInitializationConfirmed':False,'projectCreated':False,'mediaImported':False,'timelineCreated':False,'exportProven':False,'nativeRenderProven':False,'nativeMp4ExportProven':False,'mp4DeliveryValidated':False}
     resource.setrlimit(resource.RLIMIT_CORE,(0,0))
@@ -182,7 +183,10 @@ def main():
         # Provide a read-only Lua canary for the built-in Console as a separate test.
         lua_probe=global_utility/'CodexLuaProbe.lua'
         lua_probe.write_text((Path(__file__).parent/'lua_probe.lua').read_text())
-        result['scriptLocationsPrepared']=['user Utility','all-users Utility','all-users Lua diagnostic']
+        lua_edit=global_utility/'CodexLuaEditSmoke.lua'
+        lua_edit.write_text((Path(__file__).parent/'lua_edit_smoke.lua').read_text())
+        result['luaEditRequested']=bool(a.lua_native_edit)
+        result['scriptLocationsPrepared']=['user Utility','all-users Utility','all-users Lua diagnostic','all-users Lua native smoke']
         debug=Path.home()/'.local/share/DaVinciResolve/logs/ResolveDebug.txt'
         offset=debug.stat().st_size if debug.exists() else 0
         with tempfile.TemporaryFile() as log:
@@ -232,10 +236,11 @@ def main():
                     for name in ['sdk-result.json','sdk-progress.json','sdk-started.json']:(render/name).unlink(missing_ok=True)
                     result['internalScriptMenu']=invoke_internal_script(a.output,desktop_env,bounded)
                     if not result['internalScriptMenu'].get('scriptMenuInvoked') and app.poll() is None:
-                        result['luaConsole']=invoke_lua_console(a.output,desktop_env,bounded,lua_probe)
+                        result['luaConsole']=invoke_lua_console(a.output,desktop_env,bounded,lua_probe, lua_edit if a.lua_native_edit else None)
                         # An accessible in-process Lua API is not proof of script execution,
                         # successful editing, Studio access or a native render.
                         result['luaApiReachable']=result['luaConsole'].get('apiConnected') is True
+                        result['luaEditSubmitted']=result['luaConsole'].get('nativeEdit',{}).get('submitted') is True
                         if not result['luaApiReachable'] and app.poll() is None:
                             bounded(['gdb','--batch','-ex','set pagination off','-ex','thread apply all bt 12','-ex','detach','-p',str(app.pid)],desktop_env,20,a.output/'fusion-script-thread-backtrace.log')
                     if result['internalScriptMenu'].get('scriptMenuInvoked'):
