@@ -7,6 +7,10 @@ on:
         description: 'Usar vídeo privado dos segredos (45–60 s; saída protegida por senha)'
         type: boolean
         default: false
+      lua_native_edit:
+        description: 'Teste Lua de projeto e render somente com mídia sintética (experimental)'
+        type: boolean
+        default: false
 concurrency:
   group: davinci-original-dvip-experimental
   cancel-in-progress: false
@@ -18,6 +22,7 @@ jobs:
     uses: ./.github/workflows/experimentar-davinci-dvip.yml
     with:
       private_media: ${{ github.event_name == 'workflow_dispatch' && inputs.private_media }}
+      lua_native_edit: ${{ github.event_name == 'workflow_dispatch' && inputs.lua_native_edit && !inputs.private_media }}
     secrets: inherit
 
 # Verificar abertura após limitar OCR da introdução; entrada sintética sem dados pessoais.
