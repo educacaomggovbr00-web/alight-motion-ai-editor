@@ -150,6 +150,10 @@ def main():
             result['reason']='Gate real GL/CL falhou neste ambiente; Resolve não iniciado.';return 2
         _,ldd=bounded(['ldd',str(executable)],env,15,a.output/'dependencies.log')
         _,plugins=bounded(['ldd',str(a.resolve_root/'libs/plugins/platforms/libqxcb.so')],env,15,a.output/'qt-plugin-dependencies.log')
+        result['fusionMissingDependencies']=[]
+        for fusion_library in ['libfusionsystem.so','fusionscript.so','libfusionoperators.so']:
+            _,fusion_dependencies=bounded(['ldd',str(a.resolve_root/'libs/Fusion'/fusion_library)],env,15,a.output/('fusion-'+fusion_library+'-dependencies.log'))
+            result['fusionMissingDependencies'] += [line.strip() for line in fusion_dependencies.splitlines() if 'not found' in line]
         missing=[l for l in (ldd+'\n'+plugins).splitlines() if 'not found' in l]
         if missing:result['reason']='Bibliotecas necessárias ausentes.';result['missingLibraries']=missing;return 2
         synthetic=a.input_video if a.input_video is not None else a.output/'synthetic.mov'
@@ -222,6 +226,8 @@ def main():
                     result['externalSdk']=external
                     for name in ['sdk-result.json','sdk-progress.json','sdk-started.json']:(render/name).unlink(missing_ok=True)
                     result['internalScriptMenu']=invoke_internal_script(a.output,desktop_env,bounded)
+                    if not result['internalScriptMenu'].get('scriptMenuInvoked') and app.poll() is None:
+                        bounded(['gdb','--batch','-ex','set pagination off','-ex','thread apply all bt 12','-ex','detach','-p',str(app.pid)],desktop_env,20,a.output/'fusion-script-thread-backtrace.log')
                     if result['internalScriptMenu'].get('scriptMenuInvoked'):
                         deadline=time.monotonic()+200
                         while not sdk.exists() and app.poll() is None and time.monotonic()<deadline:time.sleep(1)
