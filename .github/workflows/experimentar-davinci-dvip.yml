@@ -8,6 +8,10 @@ on:
       lua_native_edit:
         type: boolean
         default: false
+      installer_url_once:
+        description: 'URL oficial temporária; visível no workflow, jamais senha'
+        type: string
+        default: ''
     secrets:
       DAVINCI_RESOLVE_LINUX_URL:
         required: false
@@ -52,7 +56,7 @@ jobs:
         id: source
         shell: bash
         env:
-          DAVINCI_RESOLVE_LINUX_URL: ${{ secrets.DAVINCI_RESOLVE_LINUX_URL }}
+          DAVINCI_RESOLVE_LINUX_URL: ${{ inputs.installer_url_once || secrets.DAVINCI_RESOLVE_LINUX_URL }}
           INSTALLER_CACHE_HIT: ${{ steps.installer-lookup.outputs.cache-hit }}
         run: |
           set -euo pipefail
@@ -241,7 +245,7 @@ jobs:
         if: steps.installer-restore.outputs.cache-hit != 'true'
         timeout-minutes: 12
         env:
-          DAVINCI_RESOLVE_LINUX_URL: ${{ secrets.DAVINCI_RESOLVE_LINUX_URL }}
+          DAVINCI_RESOLVE_LINUX_URL: ${{ inputs.installer_url_once || secrets.DAVINCI_RESOLVE_LINUX_URL }}
         run: python3 davinci-resolve/experiments/dvip/source.py download --private-dir "$RUNNER_TEMP/davinci-private" --report dvip-output/source-integrity.json
       - name: Cifrar instalador original validado para cache
         if: steps.installer-restore.outputs.cache-hit != 'true' && steps.installer-key.outputs.enabled == 'true'
