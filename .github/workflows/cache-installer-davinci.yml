@@ -1,0 +1,98 @@
+name: DaVinci — guardar instalador oficial cifrado (manual)
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      DAVINCI_RESOLVE_LINUX_URL:
+        required: false
+      DAVINCI_INSTALLER_CACHE_PASSWORD:
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: davinci-2111-encrypted-installer-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  guardar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Exigir senha de cache exclusiva e forte
+        id: installer-key
+        env:
+          DAVINCI_INSTALLER_CACHE_PASSWORD: ${{ secrets.DAVINCI_INSTALLER_CACHE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 davinci-resolve/experiments/dvip/installer_cache.py key
+          if [[ "$([[ -n "${DAVINCI_INSTALLER_CACHE_PASSWORD:-}" ]] && echo true || echo false)" != true ]]; then
+            echo 'Configure DAVINCI_INSTALLER_CACHE_PASSWORD no repositório.' >&2
+            exit 2
+          fi
+      - name: Consultar cache cifrado existente
+        id: installer-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/davinci-installer-cache
+          key: davinci-2111-installer-aesgcm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('davinci-resolve/experiments/dvip/source.py', 'davinci-resolve/experiments/dvip/installer_cache.py') }}-${{ steps.installer-key.outputs.suffix }}
+      - name: Instalar biblioteca criptográfica apenas se necessário
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! python3 -c 'from cryptography.hazmat.primitives.ciphers import Cipher' >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends python3-cryptography
+          fi
+      - name: Verificar autenticidade e hash do cache recuperado
+        if: steps.installer-restore.outputs.cache-hit == 'true'
+        timeout-minutes: 8
+        env:
+          DAVINCI_INSTALLER_CACHE_PASSWORD: ${{ secrets.DAVINCI_INSTALLER_CACHE_PASSWORD }}
+        run: |
+          python3 davinci-resolve/experiments/dvip/installer_cache.py decrypt \
+            --private-dir "$RUNNER_TEMP/davinci-private" \
+            --cache-dir "$RUNNER_TEMP/davinci-installer-cache" \
+            --report "$RUNNER_TEMP/installer-cache-status.json"
+      - name: Baixar .run do ZIP oficial temporário e verificar SHA-256
+        if: steps.installer-restore.outputs.cache-hit != 'true'
+        timeout-minutes: 12
+        env:
+          DAVINCI_RESOLVE_LINUX_URL: ${{ secrets.DAVINCI_RESOLVE_LINUX_URL }}
+        run: |
+          python3 davinci-resolve/experiments/dvip/source.py download \
+            --private-dir "$RUNNER_TEMP/davinci-private" \
+            --report "$RUNNER_TEMP/installer-download-report.json"
+      - name: Guardar somente AES-256-GCM, nunca o arquivo proprietário em claro
+        if: steps.installer-restore.outputs.cache-hit != 'true'
+        timeout-minutes: 8
+        env:
+          DAVINCI_INSTALLER_CACHE_PASSWORD: ${{ secrets.DAVINCI_INSTALLER_CACHE_PASSWORD }}
+        run: |
+          python3 davinci-resolve/experiments/dvip/installer_cache.py encrypt \
+            --private-dir "$RUNNER_TEMP/davinci-private" \
+            --cache-dir "$RUNNER_TEMP/davinci-installer-cache" \
+            --report "$RUNNER_TEMP/installer-cache-status.json"
+      - name: Salvar ciphertext no cache do GitHub Actions
+        if: steps.installer-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/davinci-installer-cache
+          key: ${{ steps.installer-restore.outputs.cache-primary-key }}
+      - name: Escrever resumo sem segredos e sem distribuir o instalador
+        if: success()
+        env:
+          INSTALLER_CACHE_HIT: ${{ steps.installer-restore.outputs.cache-hit }}
+        shell: bash
+        run: |
+          if [[ "$INSTALLER_CACHE_HIT" == true ]]; then
+            echo 'Instalador oficial autenticado e restaurado do cache cifrado. Nenhum download necessário.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Instalador oficial verificado; cache cifrado enviado. Confirme a entrada nos caches do repositório.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Apagar instalador original do runner temporário
+        if: always()
+        shell: bash
+        run: sudo rm -rf -- "$RUNNER_TEMP/davinci-private"
