@@ -6,7 +6,7 @@ on:
       DAVINCI_RESOLVE_LINUX_URL:
         required: false
       DAVINCI_INSTALLER_CACHE_PASSWORD:
-        required: true
+        required: false
 permissions:
   contents: read
 concurrency:
