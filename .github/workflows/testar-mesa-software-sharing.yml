@@ -15,6 +15,14 @@ on:
         description: 'Somente baixar, verificar e guardar instalador oficial cifrado, sem Mesa/DaVinci'
         type: boolean
         default: false
+      installer_url_once:
+        description: 'URL temporária oficial (NÃO SECRETA, pode aparecer nos logs)'
+        type: string
+        required: false
+      accept_public_url:
+        description: 'Entendo que minha URL temporária pode ser visível no GitHub'
+        type: boolean
+        default: false
 concurrency:
   group: davinci-original-dvip-experimental
   cancel-in-progress: false
@@ -22,11 +30,12 @@ permissions:
   contents: read
 jobs:
   experiment:
-    if: github.event_name == 'workflow_dispatch' && !inputs.cache_installer_only
+    if: github.event_name == 'workflow_dispatch' && !inputs.cache_installer_only && (inputs.installer_url_once == '' || inputs.accept_public_url)
     uses: ./.github/workflows/experimentar-davinci-dvip.yml
     with:
       private_media: ${{ github.event_name == 'workflow_dispatch' && inputs.private_media }}
       lua_native_edit: ${{ github.event_name == 'workflow_dispatch' && inputs.lua_native_edit }}
+      installer_url_once: ${{ inputs.accept_public_url && inputs.installer_url_once || '' }}
     secrets: inherit
 
 # Verificar abertura após limitar OCR da introdução; entrada sintética sem dados pessoais.
