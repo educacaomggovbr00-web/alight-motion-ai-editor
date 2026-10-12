@@ -1,0 +1,23 @@
+# Teste autorizado de edição de vídeo privado com o DaVinci original.
+# Só o acréscimo deste arquivo dispara este job; alterações posteriores
+# e outros pushes NÃO disparam o experimento pesado novamente.
+name: DaVinci original — tentar editar vídeo privado (Lua, execução única)
+on:
+  push:
+    branches:
+      - experiment/davinci-21-1-1-software-dvip
+    paths:
+      - .github/workflows/tentar-edicao-privada-lua-uma-vez.yml
+permissions:
+  contents: read
+concurrency:
+  group: davinci-real-private-lua-20261012
+  cancel-in-progress: false
+jobs:
+  editar-video-privado:
+    if: github.event.repository.private == true
+    uses: ./.github/workflows/experimentar-davinci-dvip.yml
+    with:
+      private_media: true
+      lua_native_edit: true
+    secrets: inherit
