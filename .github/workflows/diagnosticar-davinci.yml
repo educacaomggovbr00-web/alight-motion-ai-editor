@@ -20,6 +20,14 @@ jobs:
         run: python3 -m unittest discover -s davinci-resolve/tests -v
       - name: Testar fallback Lua sem abrir nem baixar Resolve
         run: python3 -m unittest discover -s davinci-resolve/experiments/dvip -p test_safety.py -v
+      - name: Testar cache cifrado sem baixar DaVinci
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --quiet 'cryptography>=41,<49'
+          python3 -m unittest discover -s davinci-resolve/experiments/dvip -p test_installer_cache.py -v
+          python3 -m pip install --disable-pip-version-check --quiet 'PyYAML>=6,<7'
+          python3 -m unittest discover -s davinci-resolve/experiments/dvip -p test_workflow_cache.py -v
       - name: Verificar sintaxe Lua 5.1 sem iniciar Resolve
         shell: bash
         run: |

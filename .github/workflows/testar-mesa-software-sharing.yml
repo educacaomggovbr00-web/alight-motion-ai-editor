@@ -11,6 +11,10 @@ on:
         description: 'Teste Lua nativo, inclusive vídeo privado cifrado (experimental)'
         type: boolean
         default: false
+      cache_installer_only:
+        description: 'Somente baixar, verificar e guardar instalador oficial cifrado, sem Mesa/DaVinci'
+        type: boolean
+        default: false
 concurrency:
   group: davinci-original-dvip-experimental
   cancel-in-progress: false
@@ -18,7 +22,7 @@ permissions:
   contents: read
 jobs:
   experiment:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && !inputs.cache_installer_only
     uses: ./.github/workflows/experimentar-davinci-dvip.yml
     with:
       private_media: ${{ github.event_name == 'workflow_dispatch' && inputs.private_media }}
@@ -28,3 +32,8 @@ jobs:
 # Verificar abertura após limitar OCR da introdução; entrada sintética sem dados pessoais.
 
 # Retentativa autorizada: coletar dependências Fusion e backtrace após No Scripts.
+
+  installer-cache-only:
+    if: github.event_name == 'workflow_dispatch' && inputs.cache_installer_only
+    uses: ./.github/workflows/cache-installer-davinci.yml
+    secrets: inherit
