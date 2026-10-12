@@ -72,7 +72,7 @@ def invoke(output, env, run):
         argv=['xdotool','mousemove','--sync',str(row['x']),str(row['y'])]
         if click:argv+=['click','1']
         status,_=run(argv,env,5)
-        result['actions'].append({'recognizedLabel':row['text'],'clicked':click,'exitCode':status['exitCode']})
+        result['actions'].append({'recognizedLabel':row['text'],'clicked':click,'x':row['x'],'y':row['y'],'exitCode':status['exitCode']})
         time.sleep(1)
         return status['exitCode']==0
     rows=capture(0);workspace=choose(rows,'workspace',top_only=True)
@@ -83,7 +83,7 @@ def invoke(output, env, run):
     rows=capture(1);scripts=choose(rows,'scripts')
     if scripts is None:
         result['reason']='Submenu Scripts ausente ou não reconhecido.';run(['xdotool','key','Escape'],env,5);return result
-    if not act(scripts,False):return result
+    if not act(scripts,True):return result
     rows=capture(2);target=choose(rows,TARGET)
     if target is None:
         utility=choose(rows,'utility')

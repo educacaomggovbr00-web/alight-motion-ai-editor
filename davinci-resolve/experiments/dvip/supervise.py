@@ -162,9 +162,18 @@ def main():
         result['inputKind']='private' if a.input_video is not None else 'synthetic'
         render=a.output/'render';render.mkdir(exist_ok=True)
         env.update(CODEX_SYNTHETIC_VIDEO=str(synthetic),CODEX_RENDER_OUTPUT=str(render),CODEX_WIDTH=str(a.width),CODEX_HEIGHT=str(a.height),CODEX_DURATION=str(a.duration),CODEX_MEDIA_PRIVATE='1' if a.input_video is not None else '0')
+        # A runner has no sound card: use ALSA's null playback device, not a retry loop.
+        alsa_config=a.output/'alsa-null.conf'
+        alsa_config.write_text('pcm.!default { type null }\n')
+        env['ALSA_CONFIG_PATH']=str(alsa_config)
+        result['audioPlaybackBackend']='ALSA null; file audio remains in render'
         # Make the same script available through the documented internal Scripts menu.
         utility=Path.home()/'.local/share/DaVinciResolve/Fusion/Scripts/Utility';utility.mkdir(parents=True,exist_ok=True)
         (utility/'CodexSyntheticSmoke.py').write_text((Path(__file__).parent/'edit_smoke.py').read_text())
+        global_utility=a.resolve_root/'Fusion/Scripts/Utility'
+        global_utility.mkdir(parents=True,exist_ok=True)
+        (global_utility/'CodexSyntheticSmoke.py').write_text((Path(__file__).parent/'edit_smoke.py').read_text())
+        result['scriptLocationsPrepared']=['user Utility','all-users Utility']
         debug=Path.home()/'.local/share/DaVinciResolve/logs/ResolveDebug.txt'
         offset=debug.stat().st_size if debug.exists() else 0
         with tempfile.TemporaryFile() as log:
