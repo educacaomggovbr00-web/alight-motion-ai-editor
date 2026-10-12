@@ -84,15 +84,23 @@ def advance_onboarding(output, env):
         rows=[line.split('\t') for line in tsv.splitlines()[1:]]
         words=[r for r in rows if len(r)>=12 and r[11].strip()]
         text=' '.join(r[11] for r in words)
-        # Verified 1280x720 introduction layout: OCR the enclosed Continue label separately.
+        # The original 1280x720 layout hid Continue inside a tiny label.
+        # Keep its measured coordinates relative to the centered first-run
+        # dialog as Xvfb grows to Full HD so the Console is not clipped.
         if "what's new in davinci resolve" in text.lower() and 'continue' not in text.lower():
+            size_status, size_text=bounded(['identify','-format','%wx%h',str(screen)],env,8)
+            sizes=re.fullmatch(r'(\\d{3,4})x(\\d{3,4})',size_text.strip()) if size_status['exitCode']==0 else None
+            width,height=(int(sizes[1]),int(sizes[2])) if sizes else (1280,720)
+            footer_x=max(0,670+(width-1280)//2)
+            footer_y=max(0,584+(height-720)//2)
             crop=output/f'onboarding-footer-{index}.png'
-            status,_=bounded(['convert',str(screen),'-crop','110x25+670+584','+repage','-resize','400%','-negate',str(crop)],env,10)
+            geometry=f'110x25+{footer_x}+{footer_y}'
+            status,_=bounded(['convert',str(screen),'-crop',geometry,'+repage','-resize','400%','-negate',str(crop)],env,10)
             if status['exitCode']==0:
                 _,footer=bounded(['tesseract',str(crop),'stdout','--psm','7','tsv'],env,15,output/f'onboarding-footer-{index}.log')
                 for row in [l.split('\t') for l in footer.splitlines()[1:]]:
                     if len(row)>=12 and row[11].strip().lower()=='continue':
-                        row[6]=str(670+int(row[6])//4);row[7]=str(584+int(row[7])//4)
+                        row[6]=str(footer_x+int(row[6])//4);row[7]=str(footer_y+int(row[7])//4)
                         row[8]=str(int(row[8])//4);row[9]=str(int(row[9])//4)
                         words.append(row);text+=' '+row[11]
         button=onboarding_button(text)
@@ -137,7 +145,7 @@ def main():
         limit=Path('/sys/fs/cgroup/memory.max');result['memoryLimit']=limit.read_text().strip() if limit.exists() else None
         display_file=a.output/'display-private'
         with display_file.open('w') as number,(a.output/'xvfb.log').open('w') as log:
-            x=subprocess.Popen(['Xvfb','-displayfd',str(number.fileno()),'-screen','0','1280x720x24','-nolisten','tcp','-ac'],env=env,stdout=log,stderr=log,pass_fds=(number.fileno(),),start_new_session=True)
+            x=subprocess.Popen(['Xvfb','-displayfd',str(number.fileno()),'-screen','0','1920x1080x24','-nolisten','tcp','-ac'],env=env,stdout=log,stderr=log,pass_fds=(number.fileno(),),start_new_session=True)
         for _ in range(50):
             if display_file.read_text().strip():break
             if x.poll() is not None:raise RuntimeError('Xvfb não iniciou.')

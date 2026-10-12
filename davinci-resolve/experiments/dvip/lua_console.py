@@ -37,7 +37,7 @@ def lua_prompt(rows):
     return max(candidates, key=lambda item: item['y'], default=None)
 
 
-def prompt_rows_from_tsv(tsv, scale=2):
+def prompt_rows_from_tsv(tsv, scale=2, min_y=100):
     """Recover Lua> even if OCR splits 'Lua' and '>' into separate words.
 
     General OCR labels() intentionally discards low-confidence punctuation.
@@ -58,7 +58,7 @@ def prompt_rows_from_tsv(tsv, scale=2):
             left, top, width, height = (int(fields[i]) for i in range(6, 10))
         except ValueError:
             continue
-        if top <= 100 * scale or width <= 0 or height <= 0:
+        if top <= min_y * scale or width <= 0 or height <= 0:
             continue
         lines.setdefault(tuple(fields[1:5]), []).append(
             (word_index, word, confidence, left, top, width, height))
@@ -112,24 +112,54 @@ def invoke(output, env, run, script, native_edit_script=None):
         rows = labels(data, scale=2)
         if tag in ('prompt', 'edit-prompt'):
             rows += prompt_rows_from_tsv(data, scale=2)
-            # PSM 6 can recognize narrow single-line prompts missed by PSM 11.
-            # This still does NOT authorize typing without a visible Lua>.
+            # PSM 6 can recognize narrow input rows missed by PSM 11.
             if lua_prompt(rows) is None:
                 alt_status, alt_data = run(
                     ['tesseract', str(enlarged), 'stdout', '--psm', '6', 'tsv'],
                     env, 25, output / ('lua-console-' + tag + '-psm6.log'))
                 if alt_status['exitCode'] == 0 and not alt_status.get('timeLimitReached'):
                     rows += prompt_rows_from_tsv(alt_data, scale=2)
-            # Export only classifications/coordinates, never arbitrary OCR text
-            # (the Resolve window may show the user's private video filename).
+            # A clipped bottom Console on 1280x720 is a possible cause of
+            # zero Lua tokens. Observe the bottom third separately at Full HD.
+            size_status, dimensions = run(
+                ['identify', '-format', '%wx%h', str(screenshot)], env, 8)
+            dimensions = dimensions.strip() if size_status['exitCode'] == 0 else ''
+            match = re.fullmatch(r'(\\d{3,4})x(\\d{3,4})', dimensions)
+            if lua_prompt(rows) is None and match:
+                width, height = int(match[1]), int(match[2])
+                top = 2 * height // 3
+                cropped = output / ('lua-console-footer-' + tag + '.png')
+                status, _ = run(
+                    ['convert', str(screenshot), '-crop',
+                     f'{width}x{height-top}+0+{top}', '+repage',
+                     '-resize', '200%', str(cropped)], env, 15)
+                if status['exitCode'] == 0 and not status.get('timeLimitReached'):
+                    alt_status, alt_data = run(
+                        ['tesseract', str(cropped), 'stdout', '--psm', '11', 'tsv'],
+                        env, 25, output / ('lua-console-footer-' + tag + '.log'))
+                    if alt_status['exitCode'] == 0 and not alt_status.get('timeLimitReached'):
+                        footer = prompt_rows_from_tsv(alt_data, scale=2, min_y=0)
+                        for row in footer:
+                            row['y'] += top
+                        rows.extend(footer)
+            # Whitelist UI categories ONLY. Never log raw OCR text because
+            # private video/project names may appear in the Resolve window.
+            controls = {'console', 'lua', 'py3', 'python', 'workspace',
+                        'fusion', 'edit', 'media', 'scripts'}
+            recognized = sorted({
+                r['key'] for r in rows if r.get('key') in controls
+            })
+            candidate = lua_prompt(rows)
             result.setdefault('promptDetection', []).append({
                 'stage': tag,
-                'explicitLuaPrompt': lua_prompt(rows) is not None,
+                'screenSize': dimensions if match else None,
+                'visibleUiControls': recognized,
+                'explicitLuaPrompt': candidate is not None,
                 'luaTokensWithoutPrompt': sum(
                     r.get('key') == 'lua' and r.get('text', '').strip().lower() == 'lua'
                     for r in rows),
-                'selectedX': lua_prompt(rows)['x'] if lua_prompt(rows) else None,
-                'selectedY': lua_prompt(rows)['y'] if lua_prompt(rows) else None
+                'selectedX': candidate['x'] if candidate else None,
+                'selectedY': candidate['y'] if candidate else None
             })
         return rows
 
@@ -158,6 +188,13 @@ def invoke(output, env, run, script, native_edit_script=None):
         result['reason'] = 'Falha ao abrir Console.'
         return result
     result['consoleOpened'] = True
+    # A click on Workspace > Console is NOT proof the panel received focus.
+    # Record only a boolean, never a raw title (which may contain private paths).
+    active_status, active_title = run(
+        ['xdotool', 'getactivewindow', 'getwindowname'], env, 8)
+    result['resolveWindowFocused'] = (
+        active_status['exitCode'] == 0
+        and 'DaVinci Resolve' in active_title)
     time.sleep(2)
     prompt = lua_prompt(capture('prompt'))
     if prompt is None:
