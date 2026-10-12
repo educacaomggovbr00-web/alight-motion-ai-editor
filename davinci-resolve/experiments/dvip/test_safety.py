@@ -150,9 +150,9 @@ class LuaConsoleSafety(unittest.TestCase):
         console=[{'key':'console','text':'Console','x':670,'y':180}]
         prompt=[{'key':'lua','text':'Lua >','x':640,'y':680}]
         with tempfile.TemporaryDirectory() as tmp:
-            with patch.object(lua_console.Path,'is_file',return_value=True), \\
-                 patch.object(lua_console,'labels',side_effect=[workspace,console,prompt]), \\
-                 patch.object(lua_console.time,'sleep'):
+            with (patch.object(lua_console.Path,'is_file',return_value=True),
+                  patch.object(lua_console,'labels',side_effect=[workspace,console,prompt]),
+                  patch.object(lua_console.time,'sleep')):
                 result=lua_console.invoke(Path(tmp),{},runner,self.SCRIPT)
         self.assertTrue(result['consoleOpened'])
         self.assertTrue(result['commandSubmitted'])
