@@ -179,7 +179,7 @@ class LuaNativeEditSafety(unittest.TestCase):
             calls=[]
             def runner(argv, env, seconds, output=None):
                 calls.append(argv)
-                if len(argv)>=2 and argv[:2]==['xdotool','type'] and self.EDIT in argv:
+                if len(argv)>=2 and argv[:2]==['xdotool','type'] and any(self.EDIT in arg for arg in argv):
                     (render/'sdk-result.json').write_text('{"invocationContext":"internal-lua-console","nativeRenderProven":false}')
                 return {'exitCode':0,'timeLimitReached':False}, ''
             with patch.object(lua_console.Path,'is_file',return_value=True), \
