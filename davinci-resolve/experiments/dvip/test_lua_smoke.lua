@@ -151,6 +151,7 @@ dofile(root.."lua_probe.lua")
 dofile(root.."lua_edit_smoke.lua")
 assert(report("lua-console-result.json")==nil)
 assert(report("sdk-result.json")==nil)
+assert(not state.importCalled and not state.renderStarted)
 
 os.getenv = real_getenv
 print("OK: Lua 5.1 offline probe, native timeline/render flow, codec fallback, missing writer and failed writer")
