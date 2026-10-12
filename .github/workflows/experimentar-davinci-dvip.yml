@@ -102,6 +102,25 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Liberar espaço de SDKs não usados antes do cache do Resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'Espaço de trabalho antes da limpeza:'
+          df -h .
+          # Runner exclusivo/descartável do GitHub; estes SDKs não são usados
+          # por Mesa, Docker, Python do sistema nem pelo DaVinci neste job.
+          # Executar ANTES de restaurar o instalador (~4 GiB) evita rejeição
+          # do gate de 18 GiB causada pelas ferramentas padrão do runner.
+          sudo rm -rf -- \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /usr/local/share/powershell \
+            /opt/hostedtoolcache
+          echo 'Espaço disponível depois da limpeza:'
+          df -h .
       - name: Definir chave de cache sem expor o segredo
         id: installer-key
         env:
