@@ -20,7 +20,7 @@ def command(script):
 def lua_prompt(rows):
     """OCR must identify a Lua prompt, not a generic language/menu label."""
     for item in rows:
-        if item['key'] == 'lua' and 'lua' in item['text'].lower() and item['x'] < 250 and item['y'] > 100:
+        if item['key'] == 'lua' and '>' in item['text'] and item['x'] < 250 and item['y'] > 100:
             return item
     return None
 
