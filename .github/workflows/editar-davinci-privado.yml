@@ -1,6 +1,11 @@
 name: DaVinci — conferir entrada e editar mídia protegida (experimental)
 on:
   workflow_dispatch:
+    inputs:
+      lua_native_edit:
+        description: 'Tentar edição real pelo Console Lua, com saída cifrada'
+        type: boolean
+        default: true
 permissions:
   contents: read
 concurrency:
@@ -35,4 +40,5 @@ jobs:
     uses: ./.github/workflows/experimentar-davinci-dvip.yml
     with:
       private_media: true
+      lua_native_edit: ${{ inputs.lua_native_edit }}
     secrets: inherit

@@ -2,6 +2,8 @@
 -- Uses Lua 5.1 mocks to exercise the REAL canary and native edit scripts.
 local root = "davinci-resolve/experiments/dvip/"
 local real_getenv = os.getenv
+local real_io_open = io.open
+local io_allowed = false
 local settings = {
     CODEX_RENDER_OUTPUT = "/safe-test-output",
     CODEX_SYNTHETIC_VIDEO = "/synthetic-fixture.mov",
@@ -10,6 +12,16 @@ local settings = {
 os.getenv = function(key) return settings[key] end
 local reports = {}
 local state = {}
+io.open = function(path, mode)
+    if string.sub(path, 1, #settings.CODEX_RENDER_OUTPUT) == settings.CODEX_RENDER_OUTPUT then
+        if not io_allowed or mode ~= "wb" then return nil end
+        return {
+            write = function(self, data) reports[path] = data; return self end,
+            close = function(self) return true end
+        }
+    end
+    return real_io_open(path, mode)
+end
 local function contains(text,pattern)
     return type(text) == "string" and string.find(text,pattern,1,true) ~= nil
 end
@@ -153,5 +165,17 @@ assert(report("lua-console-result.json")==nil)
 assert(report("sdk-result.json")==nil)
 assert(not state.importCalled and not state.renderStarted)
 
+-- The sandbox can refuse bmd.writefile; plain Lua io.open still writes valid JSON.
+io_allowed = true
+reset("normal",false,true)
+dofile(root.."lua_probe.lua")
+assert(contains(report("lua-console-result.json"),'"apiConnected":true'))
+reset("normal",false,true)
+dofile(root.."lua_edit_smoke.lua")
+assert(state.importCalled and state.timelineCreated and state.renderStarted)
+assert(contains(report("sdk-result.json"),'"renderProducedFile":true'))
+io_allowed = false
+
+io.open = real_io_open
 os.getenv = real_getenv
 print("OK: Lua 5.1 offline probe, native timeline/render flow, codec fallback, missing writer and failed writer")

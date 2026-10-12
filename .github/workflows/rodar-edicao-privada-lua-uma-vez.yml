@@ -1,0 +1,25 @@
+# One authorized attempt, 2026-10-12. Runs only when this exact workflow file
+# is initially added to the dedicated branch; subsequent code pushes do not match.
+# No public media, installers, login details, passwords or signed URLs in this file.
+name: "DaVinci — tentar editar vídeo privado com Lua (execução única)"
+on:
+  push:
+    branches:
+      - experiment/real-private-lua-edit-20261012
+    paths:
+      - .github/workflows/rodar-edicao-privada-lua-uma-vez.yml
+permissions:
+  contents: read
+concurrency:
+  group: davinci-one-private-lua-edit-20261012
+  cancel-in-progress: false
+jobs:
+  private-native-edit:
+    # Secrets are passed only to the private wrapper. The reusable workflow
+    # checks availability before heavy Docker/Mesa work and always encrypts
+    # a successful delivery; it never publishes a private video in plain text.
+    uses: ./.github/workflows/experimentar-davinci-dvip.yml
+    with:
+      private_media: true
+      lua_native_edit: true
+    secrets: inherit

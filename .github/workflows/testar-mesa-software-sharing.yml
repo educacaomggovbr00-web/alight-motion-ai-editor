@@ -8,7 +8,7 @@ on:
         type: boolean
         default: false
       lua_native_edit:
-        description: 'Teste Lua de projeto e render somente com mídia sintética (experimental)'
+        description: 'Teste Lua nativo, inclusive vídeo privado cifrado (experimental)'
         type: boolean
         default: false
 concurrency:
@@ -22,7 +22,7 @@ jobs:
     uses: ./.github/workflows/experimentar-davinci-dvip.yml
     with:
       private_media: ${{ github.event_name == 'workflow_dispatch' && inputs.private_media }}
-      lua_native_edit: ${{ github.event_name == 'workflow_dispatch' && inputs.lua_native_edit && !inputs.private_media }}
+      lua_native_edit: ${{ github.event_name == 'workflow_dispatch' && inputs.lua_native_edit }}
     secrets: inherit
 
 # Verificar abertura após limitar OCR da introdução; entrada sintética sem dados pessoais.

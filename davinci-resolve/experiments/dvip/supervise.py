@@ -107,8 +107,11 @@ def advance_onboarding(output, env):
     return steps
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--resolve-root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--backend',choices=['glx','egl'],required=True);p.add_argument('--input-video',type=Path);p.add_argument('--width',type=int,default=640);p.add_argument('--height',type=int,default=360);p.add_argument('--duration',type=float,default=3);p.add_argument('--lua-native-edit',action='store_true');a=p.parse_args()
-    if a.lua_native_edit and a.input_video is not None:p.error('Lua native edit apenas com mídia sintética nesta fase.')
+    p=argparse.ArgumentParser();p.add_argument('--resolve-root',type=Path,required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--backend',choices=['glx','egl'],required=True);p.add_argument('--input-video',type=Path);p.add_argument('--width',type=int,default=640);p.add_argument('--height',type=int,default=360);p.add_argument('--duration',type=float,default=3);p.add_argument('--lua-native-edit',action='store_true');p.add_argument('--allow-private-lua-edit',action='store_true');a=p.parse_args()
+    if a.lua_native_edit and a.input_video is not None and not a.allow_private_lua_edit:
+        p.error('Lua native edit apenas com mídia sintética sem autorização privada explícita.')
+    if a.allow_private_lua_edit and (a.input_video is None or not a.lua_native_edit):
+        p.error('Autorização privada exige --lua-native-edit e --input-video.')
     if (a.width,a.height) not in ((640,360),(540,960)) or not math.isfinite(a.duration) or not 1<=a.duration<=30:p.error('Formato/duração fora dos limites.')
     a.output.mkdir(parents=True,exist_ok=True);result={'state':'bloqueado','profile':a.backend,'resolveStarted':False,'glSharingPassed':False,'uiFunctionalProven':False,'dvipInitializationConfirmed':False,'projectCreated':False,'mediaImported':False,'timelineCreated':False,'exportProven':False,'nativeRenderProven':False,'nativeMp4ExportProven':False,'mp4DeliveryValidated':False}
     resource.setrlimit(resource.RLIMIT_CORE,(0,0))
