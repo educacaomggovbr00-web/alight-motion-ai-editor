@@ -1,0 +1,94 @@
+# One-time private repository cache warm-up authorized by repository owner.
+# Signed URL stays in a TEMPORARY PRIVATE ISSUE, never in Git history or logs.
+# The cached .run is UNENCRYPTED; only safe while the repository remains private.
+name: DaVinci 21.1.1 — guardar instalador no cache privado (execução única)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/obter-resolve-cache-privado-temporario.yml']
+permissions:
+  contents: read
+  issues: read
+concurrency:
+  group: resolve-2111-once-private-cache
+  cancel-in-progress: false
+jobs:
+  guardar:
+    if: ${{ github.event.repository.private == true && contains(github.event.head_commit.added, '.github/workflows/obter-resolve-cache-privado-temporario.yml') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: experiment/davinci-21-1-1-software-dvip
+      - name: Garantir repositório privado e fonte do instalador esperada
+        env:
+          REPO_PRIVATE: ${{ github.event.repository.private }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$REPO_PRIVATE" == 'true' ]] || { echo 'Bloqueado: cache só pode ser usado com repositório privado.'; exit 2; }
+          python3 - <<'PY'
+          import sys
+          sys.path.insert(0, 'davinci-resolve/experiments/dvip')
+          from source import RUN_SHA256,NAME
+          assert NAME=='DaVinci_Resolve_21.1.1_Linux.run'
+          assert RUN_SHA256=='6ed698d0b1bd7fe2fa97076fae0c24f9e0cdd0fdeaf0cfea9a8a3df730a48a15'
+          PY
+      - name: Restaurar cache privado existente, se houver
+        id: restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/davinci-installer-private-cache
+          key: davinci-2111-private-run-sha256-6ed698d0b1bd7fe2fa97076fae0c24f9e0cdd0fdeaf0cfea9a8a3df730a48a15-v1
+      - name: Conferir SHA-256 quando cache já existe
+        if: steps.restore.outputs.cache-hit == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '6ed698d0b1bd7fe2fa97076fae0c24f9e0cdd0fdeaf0cfea9a8a3df730a48a15  DaVinci_Resolve_21.1.1_Linux.run' |
+            (cd "$RUNNER_TEMP/davinci-installer-private-cache" && sha256sum --check -)
+      - name: Baixar instalador original com URL da issue privada
+        if: steps.restore.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          umask 077
+          # gh is installed on GitHub-hosted runners. Do NOT echo this URL.
+          URL="$(gh api "repos/$GITHUB_REPOSITORY/issues/7" --jq '.body | split("\n") | map(select(startswith("https://sw.blackmagicdesign.com/DaVinciResolve/v21.1.1/"))) | .[0] // ""')"
+          [[ -n "$URL" ]] || { echo 'Bloqueado: URL oficial temporária ausente.'; exit 2; }
+          DAVINCI_RESOLVE_LINUX_URL="$URL" python3 davinci-resolve/experiments/dvip/source.py download \
+            --private-dir "$RUNNER_TEMP/davinci-private" \
+            --report "$RUNNER_TEMP/resolve-official-download-check.json"
+          unset URL
+          mkdir -p "$RUNNER_TEMP/davinci-installer-private-cache"
+          mv "$RUNNER_TEMP/davinci-private/DaVinci_Resolve_21.1.1_Linux.run" \
+            "$RUNNER_TEMP/davinci-installer-private-cache/DaVinci_Resolve_21.1.1_Linux.run"
+          chmod 600 "$RUNNER_TEMP/davinci-installer-private-cache/DaVinci_Resolve_21.1.1_Linux.run"
+          echo '6ed698d0b1bd7fe2fa97076fae0c24f9e0cdd0fdeaf0cfea9a8a3df730a48a15  DaVinci_Resolve_21.1.1_Linux.run' |
+            (cd "$RUNNER_TEMP/davinci-installer-private-cache" && sha256sum --check -)
+      - name: Salvar instalador no cache restrito ao repositório privado
+        if: steps.restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/davinci-installer-private-cache
+          key: ${{ steps.restore.outputs.cache-primary-key }}
+      - name: Registrar somente resultado, nunca a URL nem arquivos proprietários
+        if: success()
+        env:
+          PRIVATE_CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+        shell: bash
+        run: |
+          if [[ "$PRIVATE_CACHE_HIT" == 'true' ]]; then
+            echo 'DaVinci 21.1.1 original restaurado de cache privado e SHA-256 confirmado.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'DaVinci 21.1.1 original validado; armazenamento em cache privado solicitado. Nenhuma URL/ZIP/.run foi publicada como artifact.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Apagar arquivos temporários fora do cache
+        if: always()
+        shell: bash
+        run: sudo rm -rf -- "$RUNNER_TEMP/davinci-private"
