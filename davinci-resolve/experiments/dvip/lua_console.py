@@ -31,7 +31,7 @@ def lua_prompt(rows):
     candidates = [
         item for item in rows
         if item.get('key') == 'lua'
-        and re.fullmatch(r'Lua\\s*[>\\u203a\\u00bb]', item.get('text', '').strip(), re.I)
+        and re.fullmatch(r'Lua\s*[>›»]', item.get('text', '').strip(), re.I)
         and item.get('x', -1) >= 0 and item.get('y', -1) > 100
     ]
     return max(candidates, key=lambda item: item['y'], default=None)
@@ -46,13 +46,14 @@ def prompt_rows_from_tsv(tsv, scale=2):
     """
     lines = {}
     for row in tsv.splitlines():
-        fields = row.split('\\t')
+        fields = row.split('\t')
         if len(fields) < 12 or fields[0] != '5':
             continue
         word = fields[11].strip()
         if not word:
             continue
         try:
+            word_index = int(fields[5])
             confidence = float(fields[10])
             left, top, width, height = (int(fields[i]) for i in range(6, 10))
         except ValueError:
@@ -60,17 +61,17 @@ def prompt_rows_from_tsv(tsv, scale=2):
         if top <= 100 * scale or width <= 0 or height <= 0:
             continue
         lines.setdefault(tuple(fields[1:5]), []).append(
-            (int(fields[5]), word, confidence, left, top, width, height))
+            (word_index, word, confidence, left, top, width, height))
     candidates = []
     for words in lines.values():
         words.sort(key=lambda word: word[0])
         for index, word in enumerate(words):
             _, text, confidence, left, top, width, height = word
-            whole = re.fullmatch(r'Lua\\s*[>\\u203a\\u00bb]', text, re.I)
+            whole = re.fullmatch(r'Lua\s*[>›»]', text, re.I)
             following = words[index + 1] if index + 1 < len(words) else None
             split = (text.lower() == 'lua' and confidence >= 30 and
                      following is not None and
-                     following[1] in ('>', '\\u203a', '\\u00bb') and
+                     following[1] in ('>', '›', '»') and
                      0 <= following[3] - (left + width) <= 80 * scale and
                      abs(following[4] - top) <= height)
             if (whole and confidence >= 10) or split:
