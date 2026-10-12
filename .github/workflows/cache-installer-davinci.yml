@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 davinci-resolve/experiments/dvip/installer_cache.py key
-          if [[ "$([[ -n "${DAVINCI_INSTALLER_CACHE_PASSWORD:-}" ]] && echo true || echo false)" != true ]]; then
+          if [[ "${{ steps.installer-key.outputs.enabled }}" != 'true' ]]; then
             echo 'Configure DAVINCI_INSTALLER_CACHE_PASSWORD no repositório.' >&2
             exit 2
           fi
