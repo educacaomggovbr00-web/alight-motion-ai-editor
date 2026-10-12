@@ -133,3 +133,70 @@ class LuaConsoleSafety(unittest.TestCase):
                 result=lua_console.invoke(Path(tmp),{},runner,self.SCRIPT)
         self.assertFalse(result['attempted'])
         self.assertFalse(any('type' in argv for argv in calls))
+
+
+class LuaNativeEditSafety(unittest.TestCase):
+    PROBE='/opt/resolve/Fusion/Scripts/Utility/CodexLuaProbe.lua'
+    EDIT='/opt/resolve/Fusion/Scripts/Utility/CodexLuaEditSmoke.lua'
+
+    def test_only_allowlisted_internal_lua_file_can_run(self):
+        self.assertEqual(lua_console.command(self.EDIT), 'dofile("'+self.EDIT+'")')
+        for path in ['/tmp/CodexLuaEditSmoke.lua', self.EDIT+'; os.execute("x")',
+                     '/opt/resolve/Fusion/Scripts/Utility/Other.lua']:
+            with self.assertRaises(ValueError):lua_console.command(path)
+
+    def test_native_edit_never_types_without_second_visible_prompt(self):
+        from internal_menu import normalized
+        rows=[
+            [{'key': 'workspace', 'text': 'Workspace', 'x': 635, 'y': 11}],
+            [{'key': 'console', 'text': 'Console', 'x': 670, 'y': 180}],
+            [{'key': 'lua', 'text': 'Lua>', 'x': 45, 'y': 610}],
+            []]
+        calls=[]
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);(root/'render').mkdir()
+            (root/'render'/'lua-console-result.json').write_text('{"apiConnected":true}')
+            def runner(argv, env, seconds, output=None):
+                calls.append(argv)
+                return {'exitCode':0,'timeLimitReached':False}, ''
+            with patch.object(lua_console.Path,'is_file',return_value=True), \
+                 patch.object(lua_console,'labels',side_effect=rows), \
+                 patch.object(lua_console.time,'sleep'):
+                report=lua_console.invoke(root,{},runner,self.PROBE,self.EDIT)
+            self.assertTrue(report['apiConnected'])
+            self.assertFalse(report['nativeEdit']['submitted'])
+            self.assertEqual(sum(a[:2]==['xdotool','type'] for a in calls),1)
+
+    def test_second_lua_command_when_probe_and_prompt_pass(self):
+        rows=[
+            [{'key': 'workspace', 'text': 'Workspace', 'x': 635, 'y': 11}],
+            [{'key': 'console', 'text': 'Console', 'x': 670, 'y': 180}],
+            [{'key': 'lua', 'text': 'Lua>', 'x': 45, 'y': 610}],
+            [{'key': 'lua', 'text': 'Lua>', 'x': 45, 'y': 610}]]
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);render=root/'render';render.mkdir()
+            (render/'lua-console-result.json').write_text('{"apiConnected":true}')
+            calls=[]
+            def runner(argv, env, seconds, output=None):
+                calls.append(argv)
+                if len(argv)>=2 and argv[:2]==['xdotool','type'] and any(self.EDIT in arg for arg in argv):
+                    (render/'sdk-result.json').write_text('{"invocationContext":"internal-lua-console","nativeRenderProven":false}')
+                return {'exitCode':0,'timeLimitReached':False}, ''
+            with patch.object(lua_console.Path,'is_file',return_value=True), \
+                 patch.object(lua_console,'labels',side_effect=rows), \
+                 patch.object(lua_console.time,'sleep'):
+                report=lua_console.invoke(root,{},runner,self.PROBE,self.EDIT)
+            self.assertTrue(report['nativeEdit']['submitted'])
+            self.assertTrue(report['nativeEdit']['resultObserved'])
+            self.assertEqual(sum(a[:2]==['xdotool','type'] for a in calls),2)
+            self.assertNotIn('nativeRenderProven',report)
+
+    def test_private_input_cannot_request_lua_experiment(self):
+        import subprocess, sys
+        script=Path(supervise.__file__)
+        p=subprocess.run([sys.executable,str(script),'--resolve-root','/does-not-exist',
+                          '--output','/tmp/not-used','--backend','glx',
+                          '--input-video','/tmp/private.mov','--lua-native-edit'],
+                         capture_output=True,text=True,timeout=8)
+        self.assertEqual(p.returncode,2)
+        self.assertIn('apenas com mídia sintética',p.stderr)
