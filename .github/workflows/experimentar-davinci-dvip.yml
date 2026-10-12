@@ -11,6 +11,8 @@ on:
     secrets:
       DAVINCI_RESOLVE_LINUX_URL:
         required: false
+      DAVINCI_INSTALLER_CACHE_PASSWORD:
+        required: false
       DAVINCI_INPUT_VIDEO_URL:
         required: false
       DAVINCI_MEDIA_PASSWORD:
@@ -33,12 +35,39 @@ jobs:
           mkdir -p dvip-preflight
           python3 -m unittest discover -s davinci-resolve/experiments/dvip -p test_safety.py -v 2>&1 | tee dvip-preflight/unit-tests.log
         shell: bash
-      - name: Verificar somente disponibilidade e validade da entrada privada
+      - name: Definir chave de cache sem expor o segredo
+        id: installer-key
+        env:
+          DAVINCI_INSTALLER_CACHE_PASSWORD: ${{ secrets.DAVINCI_INSTALLER_CACHE_PASSWORD }}
+        run: python3 davinci-resolve/experiments/dvip/installer_cache.py key
+      - name: Consultar cache cifrado sem baixar o arquivo
+        id: installer-lookup
+        if: steps.installer-key.outputs.enabled == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/davinci-installer-cache
+          key: davinci-2111-installer-aesgcm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('davinci-resolve/experiments/dvip/source.py', 'davinci-resolve/experiments/dvip/installer_cache.py') }}-${{ steps.installer-key.outputs.suffix }}
+          lookup-only: true
+      - name: Verificar URL oficial somente se não houver cache
         id: source
         env:
           DAVINCI_RESOLVE_LINUX_URL: ${{ secrets.DAVINCI_RESOLVE_LINUX_URL }}
+        shell: bash
+        env:
+          INSTALLER_CACHE_HIT: ${{ steps.installer-lookup.outputs.cache-hit }}
         run: |
-          if python3 davinci-resolve/experiments/dvip/source.py availability --private-dir "$RUNNER_TEMP/davinci-private" --report dvip-preflight/source.json; then
+          set -euo pipefail
+          if [[ "$INSTALLER_CACHE_HIT" == 'true' ]]; then
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          Path('dvip-preflight/source.json').write_text(json.dumps({
+              'state':'experimental', 'installerCacheAvailable':True,
+              'downloadStarted':False, 'signedUrlRequired':False
+          })+'\n')
+          PY
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          elif python3 davinci-resolve/experiments/dvip/source.py availability --private-dir "$RUNNER_TEMP/davinci-private" --report dvip-preflight/source.json; then
             echo 'available=true' >> "$GITHUB_OUTPUT"
           else
             echo 'available=false' >> "$GITHUB_OUTPUT"
@@ -65,6 +94,27 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Definir chave de cache sem expor o segredo
+        id: installer-key
+        env:
+          DAVINCI_INSTALLER_CACHE_PASSWORD: ${{ secrets.DAVINCI_INSTALLER_CACHE_PASSWORD }}
+        run: python3 davinci-resolve/experiments/dvip/installer_cache.py key
+      - name: Restaurar instalador cifrado pelo cache
+        id: installer-restore
+        if: steps.installer-key.outputs.enabled == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/davinci-installer-cache
+          key: davinci-2111-installer-aesgcm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('davinci-resolve/experiments/dvip/source.py', 'davinci-resolve/experiments/dvip/installer_cache.py') }}-${{ steps.installer-key.outputs.suffix }}
+      - name: Disponibilizar criptografia autenticada no runner
+        if: steps.installer-key.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! python3 -c 'from cryptography.hazmat.primitives.ciphers import Cipher' >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends python3-cryptography
+          fi
       - name: Preparar recursos e dispositivo oficial de memória
         shell: bash
         run: |
@@ -178,11 +228,38 @@ jobs:
         with:
           path: ${{ runner.temp }}/davinci-input-cache
           key: ${{ steps.private-key.outputs.key }}
-      - name: Obter somente o instalador oficial privado e conferir SHA-256 conhecido
+      - name: Descriptografar e verificar instalador já guardado
+        if: steps.installer-restore.outputs.cache-hit == 'true'
+        timeout-minutes: 8
+        env:
+          DAVINCI_INSTALLER_CACHE_PASSWORD: ${{ secrets.DAVINCI_INSTALLER_CACHE_PASSWORD }}
+        run: |
+          python3 davinci-resolve/experiments/dvip/installer_cache.py decrypt \
+            --private-dir "$RUNNER_TEMP/davinci-private" \
+            --cache-dir "$RUNNER_TEMP/davinci-installer-cache" \
+            --report dvip-output/installer-cache.json
+      - name: Baixar e verificar instalador oficial somente no cache miss
+        if: steps.installer-restore.outputs.cache-hit != 'true'
         timeout-minutes: 12
         env:
           DAVINCI_RESOLVE_LINUX_URL: ${{ secrets.DAVINCI_RESOLVE_LINUX_URL }}
         run: python3 davinci-resolve/experiments/dvip/source.py download --private-dir "$RUNNER_TEMP/davinci-private" --report dvip-output/source-integrity.json
+      - name: Cifrar instalador original validado para cache
+        if: steps.installer-restore.outputs.cache-hit != 'true' && steps.installer-key.outputs.enabled == 'true'
+        timeout-minutes: 8
+        env:
+          DAVINCI_INSTALLER_CACHE_PASSWORD: ${{ secrets.DAVINCI_INSTALLER_CACHE_PASSWORD }}
+        run: |
+          python3 davinci-resolve/experiments/dvip/installer_cache.py encrypt \
+            --private-dir "$RUNNER_TEMP/davinci-private" \
+            --cache-dir "$RUNNER_TEMP/davinci-installer-cache" \
+            --report dvip-output/installer-cache.json
+      - name: Salvar somente ciphertext autenticado, mesmo se o DaVinci falhar
+        if: steps.installer-restore.outputs.cache-hit != 'true' && steps.installer-key.outputs.enabled == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/davinci-installer-cache
+          key: ${{ steps.installer-restore.outputs.cache-primary-key }}
       - name: Extrair o original sem modificar seus arquivos nem executar instalacao silenciosa
         timeout-minutes: 5
         run: |
@@ -314,7 +391,7 @@ jobs:
     steps:
       - name: Informar o bloqueio sem executar downloads ou compilações inúteis
         run: |
-          echo 'Bloqueado: segredo DAVINCI_RESOLVE_LINUX_URL ausente ou inválido/expirado.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Bloqueado: sem cache do instalador e sem URL oficial válida DAVINCI_RESOLVE_LINUX_URL.' >> "$GITHUB_STEP_SUMMARY"
           echo 'Configure uma nova URL oficial 21.1.1 Linux exclusivamente em Settings > Secrets and variables > Actions. Não cole o link nos arquivos, issues ou logs.' >> "$GITHUB_STEP_SUMMARY"
           echo 'Resolve, DVIP e exportação não iniciados nesta execução.' >> "$GITHUB_STEP_SUMMARY"
           exit 2
