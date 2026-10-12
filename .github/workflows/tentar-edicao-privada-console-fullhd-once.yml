@@ -1,0 +1,21 @@
+# Single user-authorized run to verify the latest REAL native Lua edit blocker.
+# No sensitive media/URLs/passwords in Git. A push changing this single path
+# triggers exactly one heavy job. Never update this file after creation.
+name: DaVinci original — editar vídeo com Console Full HD (uma tentativa)
+on:
+  push:
+    branches: [experiment/davinci-21-1-1-software-dvip]
+    paths: ['.github/workflows/tentar-edicao-privada-console-fullhd-once.yml']
+permissions:
+  contents: read
+concurrency:
+  group: davinci-one-original-console-fullhd-20261012
+  cancel-in-progress: false
+jobs:
+  editar:
+    if: github.event.repository.private == true
+    uses: ./.github/workflows/experimentar-davinci-dvip.yml
+    with:
+      private_media: true
+      lua_native_edit: true
+    secrets: inherit
