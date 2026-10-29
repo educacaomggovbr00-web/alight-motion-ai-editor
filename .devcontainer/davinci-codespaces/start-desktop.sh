@@ -54,11 +54,34 @@ if ! pgrep -u "$(id -u)" -x xterm >/dev/null 2>&1; then
     -title 'Codespaces: Linux experimental sem GPU' \
     > "$workdir/xterm.log" 2>&1 < /dev/null &
 fi
-if ! ss -lnt 2>/dev/null | grep -q ':5900 '; then
-  nohup x11vnc -display "$DISPLAY" -auth "$XAUTHORITY" \
-    -localhost -nopw -forever -shared -rfbport 5900 \
-    > "$workdir/x11vnc.log" 2>&1 < /dev/null &
+# VNC exige autenticacao extra, alem do login GitHub da porta PRIVADA.
+# Protocolo VNC classico aceita apenas os primeiros oito caracteres de senha.
+passfile="$workdir/vnc-password.txt"
+authfile="$workdir/vnc-rfbauth"
+if [[ ! -s "$passfile" || ! -s "$authfile" ]]; then
+  umask 077
+  python3 - "$passfile" <<'PY'
+import secrets, sys
+from pathlib import Path
+alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
+Path(sys.argv[1]).write_text(''.join(secrets.choice(alphabet) for _ in range(8)) + '\n')
+PY
+  chmod 600 "$passfile"
+  vnc_password="$(cat "$passfile")"
+  printf '%s\n%s\ny\n' "$vnc_password" "$vnc_password" | \
+    x11vnc -storepasswd "$authfile" >/dev/null 2>&1
+  chmod 600 "$authfile"
+  unset vnc_password
 fi
+# A versao anterior executava VNC sem senha. Reinicie o VNC do usuario.
+if pgrep -u "$(id -u)" -x x11vnc >/dev/null 2>&1; then
+  pkill -u "$(id -u)" -x x11vnc || true
+  sleep 1
+fi
+nohup x11vnc -display "$DISPLAY" -auth "$XAUTHORITY" \
+  -localhost -rfbauth "$authfile" -forever -shared -rfbport 5900 \
+  > "$workdir/x11vnc.log" 2>&1 < /dev/null &
+
 if ! ss -lnt 2>/dev/null | grep -q ':6080 '; then
   nohup websockify --web=/usr/share/novnc 127.0.0.1:6080 127.0.0.1:5900 \
     > "$workdir/novnc.log" 2>&1 < /dev/null &
@@ -68,6 +91,19 @@ if ! curl --silent --fail --output /dev/null http://127.0.0.1:6080/vnc.html; the
   echo 'noVNC nao respondeu; consulte ~/.local/state/davinci-codespaces/novnc.log' >&2
   exit 2
 fi
-printf '\nDesktop Linux iniciado na porta 6080.\n'
-printf 'Abra PORTS -> 6080 -> Open in Browser -> vnc.html -> Connect.\n'
-printf 'Port Visibility deve ser PRIVATE. Nao existe GPU fisica no Codespace.\n'
+if ! ss -lnt | grep -q ':5900 '; then
+  echo 'VNC nao iniciou; veja o log privado no seu Codespace.' >&2
+  exit 2
+fi
+printf '\n==============================================\n'
+printf 'DESKTOP LINUX DO CODESPACE - NO VNC\n'
+if [[ -n "${CODESPACE_NAME:-}" && -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]]; then
+  printf 'LINK: https://%s-6080.%s/vnc.html\n' "$CODESPACE_NAME" "$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
+else
+  printf 'LINK: abra a porta 6080 em PORTS e adicione /vnc.html\n'
+fi
+printf 'SENHA VNC: %s\n' "$(cat "$passfile")"
+printf 'IMPORTANTE: mantenha a porta PRIVATE e nao compartilhe a senha.\n'
+printf 'Para tentar o DaVinci 21.1.2 original, execute:\n'
+printf 'bash .devcontainer/davinci-codespaces/try-davinci.sh\n'
+printf '==============================================\n'
