@@ -29,3 +29,21 @@ Documentacao:
 - https://docs.github.com/en/codespaces/developing-in-a-codespace/creating-a-codespace-for-a-repository
 - https://docs.github.com/en/codespaces/reference/security-in-github-codespaces
 - https://github.blog/changelog/2025-08-01-upcoming-deprecation-of-gpu-machine-type-in-codespaces/
+
+## Link e senha no terminal
+
+No Codespace ativo, atualize sua branch e execute `bash .devcontainer/davinci-codespaces/start-desktop.sh`. A saída imprime a URL do noVNC usando `CODESPACE_NAME` e `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN`, além de uma senha VNC aleatória de **8 caracteres** (limite de autenticação VNC clássica). Mantenha a porta encaminhada `6080` como **Private**, mesmo com senha. Senha guardada só no HOME do Codespace (`chmod 600`), nunca no repositório. Não envie captura de tela com senha.
+
+## Próxima etapa: DaVinci original
+
+Diagnóstico rápido, sem download:
+```bash
+bash .devcontainer/davinci-codespaces/try-davinci.sh
+```
+
+**Tentativa explícita** de baixar o ZIP oficial 21.1.2 e abrir o editor original (pode ocupar mais de 15 GiB de disco, consumir minutos de Codespaces e falhar devido à falta de GPU):
+```bash
+bash .devcontainer/davinci-codespaces/try-davinci.sh --download-and-launch
+```
+
+O script usa o Secret de ambiente `DAVINCI_RESOLVE_LINUX_URL`, quando disponível, ou solicita colar a URL assinada em entrada **oculta** no próprio terminal, sem salvá-la no repositório ou histórico do shell. O downloader confere a origem oficial HTTPS, nome/versão do ZIP, tamanho e hash observado, não uma assinatura publicada pelo fabricante. Um `Expires` vencido bloqueia o download. A extração permanece numa pasta privada em `$HOME/.local/state/davinci-codespaces/resolve-21.1.2`. O launcher não promete interface funcional, GPU ou render. Não exponha VNC ao público.
