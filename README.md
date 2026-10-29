@@ -1,5 +1,9 @@
 # Alight Motion AI Editor 🎬
 
+## DaVinci original — Console Full HD e desktop Linux/Windows
+
+O workflow principal [DaVinci original — editar vídeo com Console Full HD (uma tentativa)](.github/workflows/tentar-edicao-privada-console-fullhd-once.yml) agora oferece diagnóstico, uma tentativa nativa explicitamente autorizada e abertura do **Resolve já instalado** em máquinas Linux/Windows **self-hosted**. Uma máquina/VM persistente com GPU e sessão gráfica precisa existir antes; GitHub-hosted runners não fornecem desktop sempre ligado. Confira [o guia completo para usar pelo Android](davinci-resolve/GUI-PERSISTENTE-ACTIONS.md). Renderização nativa pelo DaVinci ainda **não está comprovada**.
+
 ## Novo editor de emo rap — Kdenlive + MLT 🖤
 
 O projeto agora também possui [edição dark com Kdenlive/MLT](kdenlive-mlt/README.md). Pelo Android, abra [Actions → Edit emo rap (Kdenlive MLT)](.github/workflows/editar-dark-mlt.yml), forneça seu MP4 e baixe o artefato meu-edit-emo-rap-mlt após a renderização. Este pipeline usa preto e branco e flashes de impacto, sem abrir interface gráfica. O trabalho com Adobe Premiere permanece preservado abaixo para retomada futura.
