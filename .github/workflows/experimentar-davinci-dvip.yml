@@ -8,6 +8,9 @@ on:
       lua_native_edit:
         type: boolean
         default: false
+      source_ref:
+        type: string
+        default: ''
     secrets:
       DAVINCI_RESOLVE_LINUX_URL:
         required: false
@@ -29,6 +32,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.source_ref || github.ref }}
       - name: Testar gates, privacidade, timeout e interfaces oficiais sem iniciar Resolve
         run: |
           set -euo pipefail
@@ -102,6 +106,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.source_ref || github.ref }}
       - name: Liberar espaço de SDKs não usados antes do cache do Resolve
         shell: bash
         run: |
