@@ -47,3 +47,16 @@ bash .devcontainer/davinci-codespaces/try-davinci.sh --download-and-launch
 ```
 
 O script usa o Secret de ambiente `DAVINCI_RESOLVE_LINUX_URL`, quando disponível, ou solicita colar a URL assinada em entrada **oculta** no próprio terminal, sem salvá-la no repositório ou histórico do shell. O downloader confere a origem oficial HTTPS, nome/versão do ZIP, tamanho e hash observado, não uma assinatura publicada pelo fabricante. Um `Expires` vencido bloqueia o download. A extração permanece numa pasta privada em `$HOME/.local/state/davinci-codespaces/resolve-21.1.2`. O launcher não promete interface funcional, GPU ou render. Não exponha VNC ao público.
+
+
+## Desktop de computador completo — XFCE
+
+O comando `bash .devcontainer/davinci-codespaces/start-desktop.sh` agora instala (na primeira execucao) o XFCE com **barra de tarefas inferior, menu Iniciar, alternancia entre janelas, relogio e icones de desktop**. Inclui: Thunar (arquivos), Terminal XFCE, navegador Falkon, Mousepad (editor de texto), Galculator, Ristretto (imagens), Xarchiver, capturas de tela e configuracoes XFCE. A primeira instalacao pode consumir armazenamento e tempo de Codespaces; o resto dos boots reutiliza os pacotes. `start-full-desktop.sh` tambem pode ser usado diretamente depois que Xvfb estiver ligado.
+
+Para atualizar seu Codespace existente:
+```bash
+git pull --ff-only origin experiment/davinci-21-1-2-console-fullhd
+bash .devcontainer/davinci-codespaces/start-desktop.sh
+```
+
+Abra o LINK exibido no terminal, informe a SENHA VNC **somente no navegador** e mantenha a porta 6080 **Private**. Se a imagem nao atualizar, use Reconnect no noVNC. Em tela de celular, use Scaling > Local Scaling ou vire o aparelho para horizontal. A versao de desktop usa XFCE (leve), nao GNOME/KDE; o GitHub Codespaces nao oferece GPU para editar no DaVinci original. O desktop ainda desliga por inatividade.
