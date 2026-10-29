@@ -1,4 +1,4 @@
--- Optional native Resolve 21.1.1 Lua smoke test. Executes INSIDE the official
+-- Optional native Resolve 21.1.2 Lua smoke test. Executes INSIDE the official
 -- Workspace > Console, never as an external Python/Studio API call.
 -- A successful Lua report is not evidence of a native render: the supervisor
 -- independently inspects the resulting MOV/MP4 with FFprobe before approving.
@@ -145,7 +145,7 @@ local function exercise()
     end
 
     local version = app:GetVersion() or {}
-    if version[1] ~= 21 or version[2] ~= 1 or version[3] ~= 1 then
+    if version[1] ~= 21 or version[2] ~= 1 or version[3] ~= 2 then
         fail("unexpected-resolve-version")
         return
     end

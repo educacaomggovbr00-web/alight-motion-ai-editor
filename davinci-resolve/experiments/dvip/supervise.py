@@ -4,7 +4,7 @@ import argparse, hashlib, json, os, re, resource, signal, subprocess, sys, tempf
 from internal_menu import invoke as invoke_internal_script
 from lua_console import invoke as invoke_lua_console
 from pathlib import Path
-from source import BINARY_SHA256, digest
+from source import digest
 
 def sanitized(text):
     text=re.sub(r'https?://[^\s<>"\']+', '[URL REDACTED]',text)
@@ -120,6 +120,15 @@ def main():
         p.error('Lua native edit apenas com mídia sintética sem autorização privada explícita.')
     if a.allow_private_lua_edit and (a.input_video is None or not a.lua_native_edit):
         p.error('Autorização privada exige --lua-native-edit e --input-video.')
+    # Observe only the executable downloaded from the official 21.1.2 package.
+    # This is a runtime-integrity stamp; not a Blackmagic-signed SHA reference.
+    try:
+        source_meta=json.loads((a.resolve_root/'resolve-original-metadata.json').read_text())
+        if source_meta.get('version')!='21.1.2':p.error('Versao de instalador nao esperada.')
+        BINARY_SHA256=source_meta['binarySha256']
+        if not re.fullmatch('[a-f0-9]{64}',BINARY_SHA256):p.error('Hash de executavel invalido.')
+    except (OSError,ValueError,KeyError):
+        p.error('Metadados oficiais 21.1.2 ausentes.')
     if (a.width,a.height) not in ((640,360),(540,960)) or not math.isfinite(a.duration) or not 1<=a.duration<=30:p.error('Formato/duração fora dos limites.')
     a.output.mkdir(parents=True,exist_ok=True);result={'state':'bloqueado','profile':a.backend,'resolveStarted':False,'glSharingPassed':False,'uiFunctionalProven':False,'dvipInitializationConfirmed':False,'projectCreated':False,'mediaImported':False,'timelineCreated':False,'exportProven':False,'nativeRenderProven':False,'nativeMp4ExportProven':False,'mp4DeliveryValidated':False}
     resource.setrlimit(resource.RLIMIT_CORE,(0,0))
@@ -291,7 +300,7 @@ def main():
             evidence=[l for l in recent.splitlines() if re.search(r'DVIP|OpenCL|OpenGL|GPU|Running DaVinci|21\.1\.1|Error|ERROR|Failed|LOADING',l)]
             (a.output/'resolve-relevant.log').write_text('\n'.join(evidence)+'\n')
             result['dvipErrors']=[l for l in evidence if 'DVIP Exception:' in l or 'failed to create context' in l or 'Failed to initialize OpenCL board manager' in l]
-            result['version21ConfirmedInLog']='21.1.1' in recent
+            result['version21ConfirmedInLog']='21.1.2' in recent
             result['dvipContextCreated']='Created OpenCL context for devices' in recent
             result['glInteropInitialized']='OpenGL interop was initialized.' in recent
         if debug.exists() and 'CrashReport' in recent: result['nativeCrashReportObserved']=True

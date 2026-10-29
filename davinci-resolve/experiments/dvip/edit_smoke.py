@@ -21,7 +21,7 @@ def exercise(resolve,video,output,render_seconds=180,width=640,height=360):
         r['reason']='API sem conexão. Não alteramos preferências/licença; testar menu interno oficial.';return r
     output.mkdir(parents=True,exist_ok=True)
     r['apiConnected']=True;r['version']=resolve.GetVersion();checkpoint()
-    if list(r['version'][:3])!=[21,1,1]:r['reason']='Versão real diferente de 21.1.1.';return r
+    if list(r['version'][:3])!=[21,1,2]:r['reason']='Versão real diferente de 21.1.2.';return r
     pm=resolve.GetProjectManager();project=pm.CreateProject('Codex_Synthetic_'+uuid.uuid4().hex[:12])
     if not project:r['reason']='CreateProject não criou projeto.';return r
     r['projectCreated']=True;checkpoint()
@@ -35,7 +35,7 @@ def exercise(resolve,video,output,render_seconds=180,width=640,height=360):
     r['timelineCreated']=True;checkpoint()
     items=timeline.GetItemListInTrack('video',1) or []
     if items:
-        # API names verified against the SDK 21.1.1 .pyi, not legacy SetProperty.
+        # API names verified against the SDK 21.1.2 .pyi, not legacy SetProperty.
         accepted=items[0].SetProperties({'TransformEnabled':True,'ZoomX':1.06,'ZoomY':1.06,'ZoomGang':True})
         props=items[0].GetProperties() or {}
         r['effectApplied']=bool(accepted and abs(float(props.get('ZoomX',0))-1.06)<.001 and abs(float(props.get('ZoomY',0))-1.06)<.001)
