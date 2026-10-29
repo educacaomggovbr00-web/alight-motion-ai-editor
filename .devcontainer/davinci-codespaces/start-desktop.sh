@@ -68,8 +68,9 @@ Path(sys.argv[1]).write_text(''.join(secrets.choice(alphabet) for _ in range(8))
 PY
   chmod 600 "$passfile"
   vnc_password="$(cat "$passfile")"
-  printf '%s\n%s\ny\n' "$vnc_password" "$vnc_password" | \
-    x11vnc -storepasswd "$authfile" >/dev/null 2>&1
+  # A opcao documentada aceita senha e arquivo; stdout fica oculto.
+  # A senha nao e adicionada ao historico nem a arquivos do repositorio.
+  x11vnc -storepasswd "$vnc_password" "$authfile" >/dev/null 2>&1
   chmod 600 "$authfile"
   unset vnc_password
 fi
