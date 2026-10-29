@@ -1,0 +1,19 @@
+{
+  "name": "DaVinci 21.1.2 - Desktop Linux (Codespaces sem GPU)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "remoteUser": "vscode",
+  "forwardPorts": [
+    6080
+  ],
+  "portsAttributes": {
+    "6080": {
+      "label": "Desktop Linux experimental - noVNC",
+      "visibility": "private",
+      "protocol": "http",
+      "onAutoForward": "notify"
+    }
+  }
+}
