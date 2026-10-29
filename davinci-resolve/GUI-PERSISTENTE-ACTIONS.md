@@ -7,7 +7,7 @@ O workflow principal [DaVinci original — editar vídeo com Console Full HD (um
 | Modo | O que realmente faz |
 | --- | --- |
 | `diagnostico` | Gera um resumo **sem instalar/abrir** DaVinci e sem ler Secrets |
-| `tentar-console-fullhd` | Com confirmação explícita, chama o Resolve original Linux 21.1.1 da branch experimental: **vídeo sintético em repo público**, ou mídia privada/cifrada **somente em repo privado**. Nenhum desses modos mantém um desktop ligado |
+| `tentar-console-fullhd` | Com confirmação explícita, chama **DaVinci Resolve 21.1.2 Linux** em repo público (apenas vídeo sintético, branch `experiment/davinci-21-1-2-console-fullhd`); em repo privado, preserva o fluxo antigo 21.1.1 com mídia cifrada. Nenhum modo mantém desktop ligado |
 | `abrir-linux-persistente` | Apenas em **repositório privado**, usa runner próprio na sessão gráfica existente de Linux para tentar abrir um DaVinci já instalado |
 | `abrir-windows-persistente` | Apenas em **repositório privado**, usa runner próprio na sessão gráfica existente do Windows para tentar abrir um DaVinci já instalado |
 
@@ -17,9 +17,11 @@ A branch experimental contém o workflow reutilizável `experimentar-davinci-dvi
 
 ## Repositório público: como usar sem expor seus vídeos
 
-Este repositório atualmente está **público**. Em `Actions`, abra o workflow **DaVinci original — editar vídeo com Console Full HD (uma tentativa)**. Selecione `diagnostico` para um teste leve, ou `tentar-console-fullhd` com `autorizar_tentativa=true` para **uma tentativa de render com mídia sintética**. O modo sintético **não recebe DAVINCI_INPUT_VIDEO_URL nem DAVINCI_MEDIA_PASSWORD**. Ele depende de uma fonte oficial válida para o instalador Linux 21.1.1 (Secret `DAVINCI_RESOLVE_LINUX_URL`) ou cache autorizado acessível; sem um deles, o **preflight encerra** sem baixar, abrir ou renderizar. Isso é um bloqueio esperado, não prova incompatibilidade do Resolve.
+Este repositório atualmente está **público**. O fluxo sintético principal usa a versão **21.1.2**, distinta do antigo teste 21.1.1. Em `Actions`, abra o workflow **DaVinci original — editar vídeo com Console Full HD (uma tentativa)**. Selecione `diagnostico` para um teste leve, ou `tentar-console-fullhd` com `autorizar_tentativa=true` para **uma tentativa de render com mídia sintética**. O modo sintético **não recebe DAVINCI_INPUT_VIDEO_URL nem DAVINCI_MEDIA_PASSWORD**. A 21.1.2 não reaproveita caches proprietários de 21.1.1. Ele depende de uma fonte oficial válida para o instalador Linux 21.1.1 (Secret `DAVINCI_RESOLVE_LINUX_URL`) ou cache autorizado acessível; sem um deles, o **preflight encerra** sem baixar, abrir ou renderizar. Isso é um bloqueio esperado, não prova incompatibilidade do Resolve.
 
 **Não execute** `abrir-linux-persistente` nem `abrir-windows-persistente` neste repositório público: o workflow bloqueia esses dois modos de propósito. Runners persistentes que controlam uma máquina pessoal devem ficar em um **repositório privado separado**. Para usar a GUI pelo celular, obtenha/autorize primeiro a máquina (física ou VM) com GPU e acesso remoto autenticado. Nenhum workflow daqui reserva nem paga essa máquina.
+
+Para v21.1.2, a URL assinada deve ser salva no Secret `DAVINCI_RESOLVE_LINUX_URL` (não nos inputs do workflow). Se tiver SHA-256 confiável da 21.1.2, opcionalmente configure `DAVINCI_RESOLVE_2112_SHA256`. Sem hash confiável, o pipeline confere a origem HTTPS oficial, integridade ZIP e hashes observados em execução; **não afirma assinatura de fabricante**. Leia [o guia específico da 21.1.2](https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/blob/experiment/davinci-21-1-2-console-fullhd/davinci-resolve/experiments/dvip/README-21.1.2.md).
 
 O teste sintético pode consumir minutos de GitHub Actions, disco e cache (cobrança depende das configurações do plano/conta). Não repita testes pesados sem corrigir primeiro a falta de fonte do instalador.
 
