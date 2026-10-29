@@ -1,0 +1,144 @@
+# Painel de controle manual do Resolve original. Não provisiona VM nem
+# transforma runner GitHub em desktop persistente.
+name: DaVinci original — editar vídeo com Console Full HD (uma tentativa)
+
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: 'Diagnóstico, abrir Resolve no seu PC/VM, ou tentar render original'
+        type: choice
+        required: true
+        default: diagnostico
+        options:
+          - diagnostico
+          - abrir-linux-persistente
+          - abrir-windows-persistente
+          - tentar-console-fullhd
+      autorizar_tentativa:
+        description: 'Confirme para executar a tentativa pesada com mídia privada'
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tentar-edicao-privada-console-fullhd-once.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: davinci-console-fullhd-manual
+  cancel-in-progress: false
+
+jobs:
+  diagnostico:
+    if: github.event_name == 'push' || inputs.modo == 'diagnostico'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Conferir configuracao sem instalar nem acessar segredos
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '## DaVinci original: controle do GitHub Actions'
+            echo ''
+            echo '- GitHub-hosted Ubuntu e temporario; nenhum desktop foi mantido aberto.'
+            echo '- O experimento de Console Full HD fica na branch experiment/davinci-21-1-1-software-dvip.'
+            echo '- A tentativa de render exige autorizar_tentativa=true, caches/segredos privados e pode falhar sem GPU real.'
+            echo '- Para abrir a interface, configure um runner self-hosted na sessao grafica de uma maquina ja ligada.'
+            echo '- Os modos Linux/Windows nao instalam DaVinci, nao provisionam hardware, nao expõem VNC/RDP e nao fazem login.'
+            echo '- Ao iniciar a interface, conecte-se ao seu desktop usando o acesso remoto privado previamente configurado.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  confirmar:
+    if: github.event_name == 'workflow_dispatch' && inputs.modo == 'tentar-console-fullhd' && inputs.autorizar_tentativa != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Impedir tentativa involuntaria
+        run: |
+          echo 'Tentativa nativa NAO iniciada. Marque autorizar_tentativa para executar o experimento pesado.' >> "$GITHUB_STEP_SUMMARY"
+          exit 2
+
+  tentar-original:
+    if: github.event_name == 'workflow_dispatch' && github.event.repository.private == true && inputs.modo == 'tentar-console-fullhd' && inputs.autorizar_tentativa == true
+    uses: educacaomggovbr00-web/alight-motion-ai-editor/.github/workflows/experimentar-davinci-dvip.yml@experiment/davinci-21-1-1-software-dvip
+    with:
+      private_media: true
+      lua_native_edit: true
+      source_ref: experiment/davinci-21-1-1-software-dvip
+    secrets: inherit
+
+  abrir-linux:
+    if: github.event_name == 'workflow_dispatch' && github.event.repository.private == true && inputs.modo == 'abrir-linux-persistente'
+    runs-on: [self-hosted, Linux, X64, davinci-gpu]
+    timeout-minutes: 6
+    steps:
+      - name: Verificar desktop Linux e abrir DaVinci ja instalado
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${DISPLAY:-}" ]] || ! command -v xset >/dev/null || ! xset q >/dev/null 2>&1; then
+            echo '::error::Runner Linux precisa iniciar dentro da sessao grafica X11 ja autenticada; nao execute como servico headless.'
+            exit 2
+          fi
+          if [[ ! -x /opt/resolve/bin/resolve ]]; then
+            echo '::error::DaVinci original ausente em /opt/resolve/bin/resolve. Instale legitimamente na maquina antes.'
+            exit 2
+          fi
+          if [[ ! -e /dev/dri/renderD128 ]] && ! command -v nvidia-smi >/dev/null; then
+            echo '::error::Nenhum dispositivo de GPU aparente. Corrija driver/hardware no host; CPU Mesa nao equivale a GPU suportada.'
+            exit 2
+          fi
+          if pgrep -x resolve >/dev/null; then
+            echo 'Processo Resolve ja existente; nao iniciar duplicado.'
+          else
+            # O host e persistente; remove somente a marca de limpeza de processos
+            # do runner. Isso nao liga a maquina nem garante que a GUI abra.
+            (env -u RUNNER_TRACKING_ID nohup /opt/resolve/bin/resolve </dev/null >"$RUNNER_TEMP/resolve-launch.log" 2>&1 &)
+            sleep 12
+            if ! pgrep -x resolve >/dev/null; then
+              echo '::error::Nao encontrei processo Resolve apos a abertura. Consulte logs privados do host.'
+              exit 2
+            fi
+          fi
+          {
+            echo '## Linux persistente'
+            echo 'Resolve detectado como processo; esta verificacao NAO comprova interface editavel, GPU aceita ou render.'
+            echo 'Abra o desktop no seu cliente remoto privado. Nao foi criado endereco remoto publico.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  abrir-windows:
+    if: github.event_name == 'workflow_dispatch' && github.event.repository.private == true && inputs.modo == 'abrir-windows-persistente'
+    runs-on: [self-hosted, Windows, X64, davinci-gpu]
+    timeout-minutes: 6
+    steps:
+      - name: Verificar desktop Windows e abrir DaVinci ja instalado
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = 'C:\Program Files\Blackmagic Design\DaVinci Resolve\Resolve.exe'
+          if (-not [Environment]::UserInteractive) {
+            throw 'Execute o runner como aplicativo na sessao Windows interativa, nao como servico.'
+          }
+          if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
+            throw 'DaVinci Resolve original nao encontrado. Instale na maquina antes.'
+          }
+          $gpu = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue
+          if (-not $gpu) { throw 'Nenhum adaptador grafico encontrado no Windows.' }
+          $process = Get-Process -Name Resolve -ErrorAction SilentlyContinue
+          if (-not $process) {
+            Remove-Item Env:RUNNER_TRACKING_ID -ErrorAction SilentlyContinue
+            Start-Process -FilePath $exe -ErrorAction Stop | Out-Null
+            Start-Sleep -Seconds 12
+            $process = Get-Process -Name Resolve -ErrorAction SilentlyContinue
+          }
+          if (-not $process) { throw 'Nao foi possivel confirmar que o processo Resolve iniciou.' }
+          @(
+            '## Windows persistente'
+            'Processo Resolve detectado; isso NAO comprova que a interface ou exportacao funcionam.'
+            'Conecte-se ao desktop Windows pelo acesso remoto privado que voce ja configurou.'
+            'Nenhum host, senha ou link de desktop foi publicado nos artifacts.'
+          ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
