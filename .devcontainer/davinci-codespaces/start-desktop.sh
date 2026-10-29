@@ -46,13 +46,21 @@ if ! xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
   echo 'Xvfb nao iniciou; consulte ~/.local/state/davinci-codespaces/xvfb.log' >&2
   exit 2
 fi
-if ! pgrep -u "$(id -u)" -x openbox >/dev/null 2>&1; then
-  nohup openbox > "$workdir/openbox.log" 2>&1 < /dev/null &
-fi
-if ! pgrep -u "$(id -u)" -x xterm >/dev/null 2>&1; then
-  nohup xterm -display "$DISPLAY" -geometry 110x32+40+40 \
-    -title 'Codespaces: Linux experimental sem GPU' \
-    > "$workdir/xterm.log" 2>&1 < /dev/null &
+# XFCE: desktop Linux completo, menu, painel, janelas, arquivos e apps.
+# Mantem Xvfb/noVNC; caso XFCE nao inicie, volta para Openbox.
+desktop_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if bash "$desktop_dir/start-full-desktop.sh"; then
+  echo 'XFCE ativo (barra de tarefas inferior e menu de aplicativos).'
+else
+  echo 'AVISO: XFCE falhou; usando desktop Openbox minimo para preservar acesso.'
+  if ! pgrep -u "$(id -u)" -x openbox >/dev/null 2>&1; then
+    nohup openbox > "$workdir/openbox.log" 2>&1 < /dev/null &
+  fi
+  if ! pgrep -u "$(id -u)" -x xterm >/dev/null 2>&1; then
+    nohup xterm -display "$DISPLAY" -geometry 100x30+30+30 \
+      -title 'Codespaces Linux (modo de recuperacao)' \
+      > "$workdir/xterm.log" 2>&1 < /dev/null &
+  fi
 fi
 # VNC exige autenticacao extra, alem do login GitHub da porta PRIVADA.
 # Protocolo VNC classico aceita apenas os primeiros oito caracteres de senha.
