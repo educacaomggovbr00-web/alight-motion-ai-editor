@@ -14,6 +14,8 @@ on:
     secrets:
       DAVINCI_RESOLVE_LINUX_URL:
         required: false
+      DAVINCI_RESOLVE_2112_SHA256:
+        required: false
       DAVINCI_INSTALLER_CACHE_PASSWORD:
         required: false
       DAVINCI_INPUT_VIDEO_URL:
