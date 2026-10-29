@@ -37,6 +37,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: experiment/davinci-21-1-2-console-fullhd
+      - name: Validar scripts oficiais 21.1.2 sem baixar instalador
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q davinci-resolve/experiments/dvip
+          python3 -m unittest discover -s davinci-resolve/experiments/dvip -p test_safety.py -v
       - name: Conferir configuracao sem instalar nem acessar segredos
         shell: bash
         run: |
@@ -45,7 +55,7 @@ jobs:
             echo '## DaVinci original: controle do GitHub Actions'
             echo ''
             echo '- GitHub-hosted Ubuntu e temporario; nenhum desktop foi mantido aberto.'
-            echo '- O experimento de Console Full HD fica na branch experiment/davinci-21-1-1-software-dvip.'
+            echo '- O Console Full HD SINTETICO agora usa experiment/davinci-21-1-2-console-fullhd (Resolve 21.1.2).'
             echo '- A tentativa usa VIDEO SINTETICO se o repo for publico, sem baixar videos privados. Em repo privado o fluxo exige segredos e cifra.'
             echo '- O render requer autorizar_tentativa=true e um instalador/cached oficial válido; pode falhar sem GPU real.'
             echo '- Para abrir a interface, configure um runner self-hosted na sessao grafica de uma maquina ja ligada.'
@@ -76,14 +86,14 @@ jobs:
     # Repositório público: não baixar vídeo pessoal, não receber segredos de mídia.
     # Em repositorio privado, a tentativa original preserva o fluxo cifrado.
     if: github.event_name == 'workflow_dispatch' && github.event.repository.private == false && inputs.modo == 'tentar-console-fullhd' && inputs.autorizar_tentativa == true
-    uses: educacaomggovbr00-web/alight-motion-ai-editor/.github/workflows/experimentar-davinci-dvip.yml@experiment/davinci-21-1-1-software-dvip
+    uses: educacaomggovbr00-web/alight-motion-ai-editor/.github/workflows/experimentar-davinci-dvip.yml@experiment/davinci-21-1-2-console-fullhd
     with:
       private_media: false
       lua_native_edit: true
-      source_ref: experiment/davinci-21-1-1-software-dvip
+      source_ref: experiment/davinci-21-1-2-console-fullhd
     secrets:
       DAVINCI_RESOLVE_LINUX_URL: ${{ secrets.DAVINCI_RESOLVE_LINUX_URL }}
-      DAVINCI_INSTALLER_CACHE_PASSWORD: ${{ secrets.DAVINCI_INSTALLER_CACHE_PASSWORD }}
+      DAVINCI_RESOLVE_2112_SHA256: ${{ secrets.DAVINCI_RESOLVE_2112_SHA256 }}
 
   desktop-publico-bloqueado:
     if: github.event_name == 'workflow_dispatch' && github.event.repository.private == false && (inputs.modo == 'abrir-linux-persistente' || inputs.modo == 'abrir-windows-persistente')
