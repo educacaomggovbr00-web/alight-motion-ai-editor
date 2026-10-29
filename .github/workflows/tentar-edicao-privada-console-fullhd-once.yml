@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       modo:
-        description: 'Diagnóstico, abrir Resolve no seu PC/VM, ou tentar render original'
+        description: 'Diagnóstico, tentativa sintética (público) / privada (privado), ou desktop próprio'
         type: choice
         required: true
         default: diagnostico
@@ -16,7 +16,7 @@ on:
           - abrir-windows-persistente
           - tentar-console-fullhd
       autorizar_tentativa:
-        description: 'Confirme para executar a tentativa pesada com mídia privada'
+        description: 'Autorizar uso de runner pesado (nao executa sem instalador/cache oficial)'
         type: boolean
         default: false
   push:
@@ -46,7 +46,8 @@ jobs:
             echo ''
             echo '- GitHub-hosted Ubuntu e temporario; nenhum desktop foi mantido aberto.'
             echo '- O experimento de Console Full HD fica na branch experiment/davinci-21-1-1-software-dvip.'
-            echo '- A tentativa de render exige autorizar_tentativa=true, caches/segredos privados e pode falhar sem GPU real.'
+            echo '- A tentativa usa VIDEO SINTETICO se o repo for publico, sem baixar videos privados. Em repo privado o fluxo exige segredos e cifra.'
+            echo '- O render requer autorizar_tentativa=true e um instalador/cached oficial válido; pode falhar sem GPU real.'
             echo '- Para abrir a interface, configure um runner self-hosted na sessao grafica de uma maquina ja ligada.'
             echo '- Os modos Linux/Windows nao instalam DaVinci, nao provisionam hardware, nao expõem VNC/RDP e nao fazem login.'
             echo '- Ao iniciar a interface, conecte-se ao seu desktop usando o acesso remoto privado previamente configurado.'
@@ -62,7 +63,7 @@ jobs:
           echo 'Tentativa nativa NAO iniciada. Marque autorizar_tentativa para executar o experimento pesado.' >> "$GITHUB_STEP_SUMMARY"
           exit 2
 
-  tentar-original:
+  tentar-original-privado:
     if: github.event_name == 'workflow_dispatch' && github.event.repository.private == true && inputs.modo == 'tentar-console-fullhd' && inputs.autorizar_tentativa == true
     uses: educacaomggovbr00-web/alight-motion-ai-editor/.github/workflows/experimentar-davinci-dvip.yml@experiment/davinci-21-1-1-software-dvip
     with:
@@ -70,6 +71,37 @@ jobs:
       lua_native_edit: true
       source_ref: experiment/davinci-21-1-1-software-dvip
     secrets: inherit
+
+  tentar-original-sintetico:
+    # Repositório público: não baixar vídeo pessoal, não receber segredos de mídia.
+    # Em repositorio privado, a tentativa original preserva o fluxo cifrado.
+    if: github.event_name == 'workflow_dispatch' && github.event.repository.private == false && inputs.modo == 'tentar-console-fullhd' && inputs.autorizar_tentativa == true
+    uses: educacaomggovbr00-web/alight-motion-ai-editor/.github/workflows/experimentar-davinci-dvip.yml@experiment/davinci-21-1-1-software-dvip
+    with:
+      private_media: false
+      lua_native_edit: true
+      source_ref: experiment/davinci-21-1-1-software-dvip
+    secrets:
+      DAVINCI_RESOLVE_LINUX_URL: ${{ secrets.DAVINCI_RESOLVE_LINUX_URL }}
+      DAVINCI_INSTALLER_CACHE_PASSWORD: ${{ secrets.DAVINCI_INSTALLER_CACHE_PASSWORD }}
+
+  desktop-publico-bloqueado:
+    if: github.event_name == 'workflow_dispatch' && github.event.repository.private == false && (inputs.modo == 'abrir-linux-persistente' || inputs.modo == 'abrir-windows-persistente')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Orientar sem conectar computador pessoal ao repositório público
+        shell: bash
+        run: |
+          {
+            echo '## Desktop remoto não iniciado'
+            echo ''
+            echo 'Este repositório é PUBLICO: não conecte um runner persistente com GPU, acesso ao desktop e arquivos pessoais aqui.'
+            echo 'Use um repositório PRIVADO separado, um computador/VM que já exista e esteja ligado, e acesso remoto autenticado.'
+            echo 'O GitHub Actions não cria nem mantém uma VM ou sessão de desktop depois do job.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo '::error::Desktop remoto bloqueado neste repositório público por segurança.'
+          exit 2
 
   abrir-linux:
     if: github.event_name == 'workflow_dispatch' && github.event.repository.private == true && inputs.modo == 'abrir-linux-persistente'
