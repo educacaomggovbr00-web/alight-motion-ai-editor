@@ -7,13 +7,21 @@ O workflow principal [DaVinci original — editar vídeo com Console Full HD (um
 | Modo | O que realmente faz |
 | --- | --- |
 | `diagnostico` | Gera um resumo **sem instalar/abrir** DaVinci e sem ler Secrets |
-| `tentar-console-fullhd` | Com confirmação explícita, chama o experimento original Linux 21.1.1 da branch `experiment/davinci-21-1-1-software-dvip`, com vídeo privado e Console Full HD |
-| `abrir-linux-persistente` | Usa um runner próprio na **sessão gráfica existente** de um Linux para tentar abrir um DaVinci já instalado |
-| `abrir-windows-persistente` | Usa um runner próprio na **sessão gráfica existente** do Windows para tentar abrir um DaVinci já instalado |
+| `tentar-console-fullhd` | Com confirmação explícita, chama o Resolve original Linux 21.1.1 da branch experimental: **vídeo sintético em repo público**, ou mídia privada/cifrada **somente em repo privado**. Nenhum desses modos mantém um desktop ligado |
+| `abrir-linux-persistente` | Apenas em **repositório privado**, usa runner próprio na sessão gráfica existente de Linux para tentar abrir um DaVinci já instalado |
+| `abrir-windows-persistente` | Apenas em **repositório privado**, usa runner próprio na sessão gráfica existente do Windows para tentar abrir um DaVinci já instalado |
 
 **Não provisiona uma VM, não fornece GPU, não instala DaVinci, não ativa uma máquina desligada e não cria acesso remoto.** O sucesso do launcher significa somente que um processo foi detectado. Confirme na tela se a interface abre, se a GPU é aceita e se o programa edita/exporta.
 
 A branch experimental contém o workflow reutilizável `experimentar-davinci-dvip.yml` com `source_ref` explícito. Isto permite que o Actions em `main` baixe o código e as actions locais da branch correta, sem misturá-los com os arquivos diferentes da `main`.
+
+## Repositório público: como usar sem expor seus vídeos
+
+Este repositório atualmente está **público**. Em `Actions`, abra o workflow **DaVinci original — editar vídeo com Console Full HD (uma tentativa)**. Selecione `diagnostico` para um teste leve, ou `tentar-console-fullhd` com `autorizar_tentativa=true` para **uma tentativa de render com mídia sintética**. O modo sintético **não recebe DAVINCI_INPUT_VIDEO_URL nem DAVINCI_MEDIA_PASSWORD**. Ele depende de uma fonte oficial válida para o instalador Linux 21.1.1 (Secret `DAVINCI_RESOLVE_LINUX_URL`) ou cache autorizado acessível; sem um deles, o **preflight encerra** sem baixar, abrir ou renderizar. Isso é um bloqueio esperado, não prova incompatibilidade do Resolve.
+
+**Não execute** `abrir-linux-persistente` nem `abrir-windows-persistente` neste repositório público: o workflow bloqueia esses dois modos de propósito. Runners persistentes que controlam uma máquina pessoal devem ficar em um **repositório privado separado**. Para usar a GUI pelo celular, obtenha/autorize primeiro a máquina (física ou VM) com GPU e acesso remoto autenticado. Nenhum workflow daqui reserva nem paga essa máquina.
+
+O teste sintético pode consumir minutos de GitHub Actions, disco e cache (cobrança depende das configurações do plano/conta). Não repita testes pesados sem corrigir primeiro a falta de fonte do instalador.
 
 ## Limite dos runners GitHub
 
@@ -43,8 +51,8 @@ O job tenta iniciar o processo, sem publicar logs de interface. Caso não apare�
 
 ## Executar a tentativa Console Full HD original
 
-1. Mantenha o repositório **privado**. O pipeline antigo é experimental e só pode afirmar render se verificar arquivo produzido pelo **motor DaVinci**.
-2. Nas opções de execução, escolha `tentar-console-fullhd` e ative **autorizar_tentativa**; caso contrário, o workflow bloqueia a tentativa.
+1. Para mídia pessoal, utilize um repositório **privado**. Este repositório público executa apenas entrada sintética. O pipeline só pode afirmar render se verificar arquivo produzido pelo **motor DaVinci**.
+2. Nas opções de execução, escolha `tentar-console-fullhd` e ative **autorizar_tentativa**. Em repositório público executa apenas mídia sintética; em privado, o fluxo original com mídia privada segue protegido.
 3. Configure os Secrets exigidos pelo experimento, conforme [documentação DVIP da branch experimental](https://github.com/educacaomggovbr00-web/alight-motion-ai-editor/blob/experiment/davinci-21-1-1-software-dvip/davinci-resolve/experiments/dvip/README.md): `DAVINCI_INPUT_VIDEO_URL`, `DAVINCI_MEDIA_PASSWORD`; para o instalador, cache privado válido ou `DAVINCI_RESOLVE_LINUX_URL` oficial temporária.
 4. Consulte os jobs `preflight`, `original` e o resumo final. **Um diagnóstico aprovado ou processo aberto não prova exportação.** Esta tentativa pode falhar exatamente no bloqueio de Console/GPU conhecido.
 5. Não cole links de mídia, senhas, chaves Adobe/Blackmagic ou segredos no chat, no commit ou na entrada manual do workflow.
