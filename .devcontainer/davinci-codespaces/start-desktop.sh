@@ -2,6 +2,28 @@
 # Uso: bash .devcontainer/davinci-codespaces/start-desktop.sh
 # MANTENHA A PORTA 6080 PRIVATE no Codespaces.
 set -euo pipefail
+
+# Codespaces criados ANTES da configuracao costumam usar a imagem padrao.
+# Instalar dependencias somente quando o usuario executar este script.
+packages=(xvfb openbox xterm x11vnc novnc websockify xauth openssl x11-utils iproute2 curl)
+commands=(Xvfb openbox xterm x11vnc websockify xauth openssl xdpyinfo ss curl)
+need_install=false
+for item in "${commands[@]}"; do
+  if ! command -v "$item" >/dev/null 2>&1; then
+    need_install=true
+    break
+  fi
+done
+if [[ ! -f /usr/share/novnc/vnc.html ]]; then need_install=true; fi
+if [[ "$need_install" == true ]]; then
+  echo 'Instalando desktop Linux (Xvfb/noVNC) na imagem padrao deste Codespace...'
+  if ! command -v sudo >/dev/null 2>&1; then
+    echo 'sudo ausente; recrie o Codespace com a configuracao DaVinci Linux.' >&2
+    exit 2
+  fi
+  sudo env DEBIAN_FRONTEND=noninteractive apt-get update -qq
+  sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends "${packages[@]}"
+fi
 export DISPLAY=:99
 workdir="${HOME}/.local/state/davinci-codespaces"
 mkdir -p "$workdir"
