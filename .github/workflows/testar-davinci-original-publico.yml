@@ -1,0 +1,25 @@
+# Execucao intencional de video SINTETICO: nunca toca em DAVINCI_INPUT_VIDEO_URL
+# ou DAVINCI_MEDIA_PASSWORD. Este arquivo dispara uma tentativa na criacao.
+name: DaVinci original 21.1.1 - Console Full HD sintetico (publico)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/testar-davinci-original-publico.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: davinci-original-synthetic-fullhd
+  cancel-in-progress: false
+jobs:
+  original-sintetico:
+    if: github.event.repository.private == false
+    uses: educacaomggovbr00-web/alight-motion-ai-editor/.github/workflows/experimentar-davinci-dvip.yml@experiment/davinci-21-1-1-software-dvip
+    with:
+      private_media: false
+      lua_native_edit: true
+      source_ref: experiment/davinci-21-1-1-software-dvip
+    secrets:
+      DAVINCI_RESOLVE_LINUX_URL: ${{ secrets.DAVINCI_RESOLVE_LINUX_URL }}
+      DAVINCI_INSTALLER_CACHE_PASSWORD: ${{ secrets.DAVINCI_INSTALLER_CACHE_PASSWORD }}
