@@ -105,8 +105,8 @@ PY
   if [[ ! -x "$resolve" ]]; then
     # O ZIP original ocupa varios gigabytes, e a extracao ainda mais.
     free_kib="$(df -Pk "$private" | awk 'NR==2 {print $4}')"
-    if [[ ! "$free_kib" =~ ^[0-9]+$ ]] || (( free_kib < 15*1024*1024 )); then
-      echo 'Menos de 15 GiB livres; operacao cancelada para evitar falta de disco.' >&2
+    if [[ ! "$free_kib" =~ ^[0-9]+$ ]] || (( free_kib < 28*1024*1024 )); then
+      echo 'Menos de 28 GiB livres: o ZIP Studio pode ultrapassar 6 GiB e a extração requer ainda mais disco. Verifique df -h . antes de tentar.' >&2
       exit 2
     fi
     echo 'Baixando ZIP oficial e extraindo na pasta privada deste Codespace...'
