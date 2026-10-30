@@ -128,14 +128,14 @@ def extract(run, directory):
         raise Blocked('Instalador nao corresponde ao download oficial observado.')
     if RUN_SHA256 and digest(run)!=RUN_SHA256: raise Blocked('Hash fixado divergente.')
     binary=directory/'squashfs-root/bin/resolve'
-    if not binary.exists():
+    if not (binary.is_file() and (directory/'squashfs-root/resolve-original-metadata.json').is_file()):
         env={k:v for k,v in os.environ.items() if k not in ('DAVINCI_RESOLVE_LINUX_URL','DAVINCI_RESOLVE_2112_SHA256')}
         with (directory/'extraction-private.log').open('wb') as log:
             p=subprocess.Popen([str(run),'--appimage-extract'],cwd=directory,env=env,stdout=log,stderr=log,start_new_session=True)
             try:
-                if p.wait(timeout=240)!=0: raise Blocked('Extracao oficial falhou; consultar log privado.')
+                if p.wait(timeout=900)!=0: raise Blocked('Extracao oficial falhou; consultar log privado.')
             except subprocess.TimeoutExpired:
-                raise Blocked('Extracao excedeu 240s.') from None
+                raise Blocked('Extracao excedeu 900s.') from None
             finally:
                 try:os.killpg(p.pid,signal.SIGKILL)
                 except ProcessLookupError:pass
