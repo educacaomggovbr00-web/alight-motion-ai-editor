@@ -59,7 +59,7 @@ def _manifest(directory):
         raise Blocked('Metadados de integridade invalidos.')
     return j
 
-def download(url, directory, seconds=600):
+def download(url, directory, seconds=1800):
     validate_url(url)
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     run=directory/NAME
@@ -84,11 +84,11 @@ def download(url, directory, seconds=600):
                 chunk=response.read(1024*1024)
                 if not chunk: break
                 total+=len(chunk)
-                if total>6*1024**3: raise Blocked('Download excede 6 GiB.')
+                if total>12*1024**3: raise Blocked('Download excede o limite de segurança de 12 GiB.')
                 out.write(chunk)
         with zipfile.ZipFile(archive) as z:
             matches=[i for i in z.infolist() if i.filename==NAME and not i.is_dir()]
-            if len(matches)!=1 or matches[0].file_size>5*1024**3 or matches[0].file_size<100_000:
+            if len(matches)!=1 or matches[0].file_size>12*1024**3 or matches[0].file_size<100_000:
                 raise Blocked('Pacote oficial nao contem o instalador 21.1.2 esperado.')
             with z.open(matches[0]) as f,run.open('xb') as out:
                 os.chmod(run,0o600)
@@ -97,7 +97,7 @@ def download(url, directory, seconds=600):
                     b=f.read(1024*1024)
                     if not b:break
                     copied+=len(b)
-                    if copied>5*1024**3:raise Blocked('Arquivo extraido excede 5 GiB.')
+                    if copied>12*1024**3:raise Blocked('Arquivo extraido excede 12 GiB.')
                     out.write(b)
             if copied!=matches[0].file_size: raise Blocked('Extração ZIP incompleta.')
         sha=digest(run)
