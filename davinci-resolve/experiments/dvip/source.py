@@ -5,12 +5,19 @@ No SHA-256 for 21.1.2 was previously observed: runtime hashes are NOT vendor sig
 import argparse, hashlib, json, os, re, signal, subprocess, time, urllib.error, urllib.parse, urllib.request, zipfile
 from pathlib import Path
 
-NAME = 'DaVinci_Resolve_21.1.2_Linux.run'
-URL_PATH = '/DaVinciResolve/v21.1.2/DaVinci_Resolve_21.1.2_Linux.zip'
+# A edicao vem SOMENTE do caminho oficial da URL na variavel de ambiente.
+# Nunca confiar em nomes arbitrarios de arquivo enviados pelo usuario.
+FREE_URL_PATH = '/DaVinciResolve/v21.1.2/DaVinci_Resolve_21.1.2_Linux.zip'
+STUDIO_URL_PATH = '/DaVinciResolve/v21.1.2/DaVinci_Resolve_Studio_21.1.2_Linux.zip'
+source_path = urllib.parse.urlsplit(os.environ.get('DAVINCI_RESOLVE_LINUX_URL', '')).path
+EDITION = 'studio' if source_path == STUDIO_URL_PATH else 'free'
+NAME = ('DaVinci_Resolve_Studio_21.1.2_Linux.run' if EDITION == 'studio'
+        else 'DaVinci_Resolve_21.1.2_Linux.run')
+URL_PATH = STUDIO_URL_PATH if EDITION == 'studio' else FREE_URL_PATH
 # Optional independently obtained pinned installer hash, for stronger verification.
 RUN_SHA256 = os.environ.get('DAVINCI_RESOLVE_2112_SHA256','').strip().lower()
 BINARY_SHA256 = ''  # Captured from the extracted official package; not a vendor-published reference.
-MANIFEST = 'official-source-21.1.2.json'
+MANIFEST = 'official-source-21.1.2-' + EDITION + '.json'
 
 class Blocked(Exception): pass
 
@@ -20,7 +27,7 @@ def validate_url(url, now=None):
         if (p.scheme != 'https' or p.hostname != 'sw.blackmagicdesign.com'
                 or p.port not in (None,443) or p.username or p.password or p.fragment
                 or urllib.parse.unquote(p.path) != URL_PATH):
-            raise Blocked('Somente download oficial HTTPS Resolve 21.1.2 Linux permitido.')
+            raise Blocked('Somente download HTTPS oficial Resolve 21.1.2 (Free ou Studio) permitido.')
         expires = urllib.parse.parse_qs(p.query).get('Expires')
         if expires and (len(expires)!=1 or int(expires[0]) <= (time.time() if now is None else now)):
             raise Blocked('URL oficial expirada; atualize o Secret DAVINCI_RESOLVE_LINUX_URL.')
@@ -48,7 +55,7 @@ def _manifest(directory):
     try:
         j=json.loads(p.read_text())
     except (ValueError,OSError): raise Blocked('Manifesto de download invalido.') from None
-    if j.get('version')!='21.1.2' or not re.fullmatch('[a-f0-9]{64}',str(j.get('installerSha256',''))):
+    if j.get('version')!='21.1.2' or j.get('edition', 'free')!=EDITION or not re.fullmatch('[a-f0-9]{64}',str(j.get('installerSha256',''))):
         raise Blocked('Metadados de integridade invalidos.')
     return j
 
@@ -95,7 +102,7 @@ def download(url, directory, seconds=600):
             if copied!=matches[0].file_size: raise Blocked('Extração ZIP incompleta.')
         sha=digest(run)
         if RUN_SHA256 and sha!=RUN_SHA256: raise Blocked('Hash do .run diverge do SHA-256 informado.')
-        manifest={'version':'21.1.2','installerSha256':sha,
+        manifest={'version':'21.1.2','edition':EDITION,'installerSha256':sha,
                   'hashPinned':bool(RUN_SHA256),'officialHostChecked':True,
                   'officialUrlPathChecked':True,'vendorPublishedHashVerified':False,
                   'archiveBytes':total}
@@ -136,7 +143,7 @@ def extract(run, directory):
     if not binary.is_file() or binary.is_symlink(): raise Blocked('Binario Resolve ausente.')
     binary_sha=digest(binary)
     # Expected for supervisor at start and end; a runtime observation, not a signature.
-    metadata={'version':'21.1.2','installerSha256':manifest['installerSha256'],
+    metadata={'version':'21.1.2','edition':EDITION,'installerSha256':manifest['installerSha256'],
               'binarySha256':binary_sha,'hashPinned':bool(RUN_SHA256),
               'vendorPublishedHashVerified':False,'originalPayloadModified':False}
     (directory/'squashfs-root/resolve-original-metadata.json').write_text(json.dumps(metadata,indent=2)+'\n')
@@ -152,7 +159,7 @@ def main():
         else:
             if not url:raise Blocked('Secret DAVINCI_RESOLVE_LINUX_URL ausente; nao baixou nada.')
             validate_url(url)
-            if a.mode=='availability': result={'state':'experimental','sourceAvailable':True,'downloadStarted':False,'version':'21.1.2'}
+            if a.mode=='availability': result={'state':'experimental','sourceAvailable':True,'downloadStarted':False,'version':'21.1.2','edition':EDITION,'studioLicenseNotAutomated':EDITION=='studio'}
             else:_,result=download(url,a.private_dir)
         return 0
     except Blocked as exc:
