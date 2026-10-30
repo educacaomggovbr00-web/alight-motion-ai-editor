@@ -8,9 +8,12 @@ case "$mode" in
   *) echo 'Uso: bash .devcontainer/davinci-codespaces/try-davinci.sh [--check|--launch|--download-and-launch]' >&2; exit 2;;
 esac
 base="${HOME}/.local/state/davinci-codespaces"
-private="$base/resolve-21.1.2"
-mkdir -p "$private"
-chmod 700 "$base" "$private"
+# Instale Free e Studio em pastas separadas para nao misturar arquivos.
+free_private="$base/resolve-21.1.2"
+studio_private="$base/resolve-studio-21.1.2"
+private="$free_private"
+mkdir -p "$base"
+chmod 700 "$base"
 export DISPLAY="${DISPLAY:-:99}"
 export XAUTHORITY="${XAUTHORITY:-$base/Xauthority}"
 resolve="$private/squashfs-root/bin/resolve"
@@ -28,10 +31,19 @@ if command -v nvidia-smi >/dev/null 2>&1; then nvidia-smi -L || true; fi
 if command -v glxinfo >/dev/null 2>&1; then
   DISPLAY="$DISPLAY" XAUTHORITY="$XAUTHORITY" glxinfo -B 2>/dev/null | grep -E 'OpenGL renderer|OpenGL vendor|OpenGL version' || true
 fi
-if [[ ! -x "$resolve" ]]; then
-  echo 'DaVinci original 21.1.2 nao foi extraido neste Codespace.'
+if [[ -x "$free_private/squashfs-root/bin/resolve" ]]; then
+  echo 'DaVinci Resolve Free 21.1.2 encontrado.'
 else
-  echo 'Executavel 21.1.2 encontrado na pasta privada do Codespace.'
+  echo 'DaVinci Resolve Free 21.1.2 ainda nao esta instalado.'
+fi
+if [[ -x "$studio_private/squashfs-root/bin/resolve" ]]; then
+  echo 'DaVinci Resolve Studio 21.1.2 encontrado (uso exige licenca valida).'
+else
+  echo 'DaVinci Resolve Studio 21.1.2 ainda nao esta instalado.'
+fi
+if [[ "$mode" == '--launch' && -x "$studio_private/squashfs-root/bin/resolve" ]]; then
+  private="$studio_private"
+  resolve="$private/squashfs-root/bin/resolve"
 fi
 
 if [[ "$mode" == '--check' ]]; then
@@ -46,28 +58,63 @@ if ! command -v xdpyinfo >/dev/null 2>&1 || ! xdpyinfo -display "$DISPLAY" >/dev
   exit 2
 fi
 
-if [[ "$mode" == '--download-and-launch' && ! -x "$resolve" ]]; then
-  # O arquivo zip oficial ocupa varios gigabytes, e a extracao ainda mais.
-  free_kib="$(df -Pk "$private" | awk 'NR==2 {print $4}')"
-  if [[ ! "$free_kib" =~ ^[0-9]+$ ]] || (( free_kib < 15*1024*1024 )); then
-    echo 'Espaco livre inferior a 15 GiB; download/extracao cancelados para evitar falta de disco.' >&2
-    exit 2
-  fi
+if [[ "$mode" == '--download-and-launch' ]]; then
   if [[ -z "${DAVINCI_RESOLVE_LINUX_URL:-}" ]]; then
-    echo 'Cole sua URL oficial assinada 21.1.2 (entrada oculta; nao vai para o historico).'
+    echo 'Cole URL oficial assinada Free ou Studio 21.1.2 (entrada oculta; nao vai para historico).'
     read -r -s -p 'URL: ' DAVINCI_RESOLVE_LINUX_URL
     printf '\n'
     export DAVINCI_RESOLVE_LINUX_URL
   fi
   if [[ -z "${DAVINCI_RESOLVE_LINUX_URL:-}" ]]; then
-    echo 'URL nao fornecida; nada baixado.' >&2; exit 2
+    echo 'URL nao fornecida; nenhum download iniciado.' >&2
+    exit 2
   fi
-  printf 'Validando URL oficial sem iniciar download...\n'
+
+  # Identificar edicao SOMENTE pelo caminho, sem registrar assinatura/query.
+  edition="$(python3 - <<'PY'
+import os
+from urllib.parse import urlsplit
+path=urlsplit(os.environ.get('DAVINCI_RESOLVE_LINUX_URL','')).path
+if path == '/DaVinciResolve/v21.1.2/DaVinci_Resolve_21.1.2_Linux.zip':
+    print('free')
+elif path == '/DaVinciResolve/v21.1.2/DaVinci_Resolve_Studio_21.1.2_Linux.zip':
+    print('studio')
+else:
+    print('invalid')
+PY
+)"
+  case "$edition" in
+    free) private="$free_private" ;;
+    studio)
+      private="$studio_private"
+      echo 'Edicao escolhida: DaVinci Resolve STUDIO (exige licenca legitima).'
+      echo 'Nao sera feita qualquer ativacao ou contorno de licenca.'
+      ;;
+    *)
+      echo 'Caminho do instalador nao e da edicao oficial Free/Studio 21.1.2.' >&2
+      exit 2
+      ;;
+  esac
+  resolve="$private/squashfs-root/bin/resolve"
+  mkdir -p "$private"
+  chmod 700 "$private"
+
+  printf 'Validando host, caminho e validade da URL sem baixar...\n'
   python3 "$source_script" availability --private-dir "$private" --report "$private/preflight.json"
-  printf 'Baixando ZIP oficial somente para a pasta privada do Codespace...\n'
-  python3 "$source_script" download --private-dir "$private" --report "$private/download.json"
-  printf 'Extraindo executavel oficial 21.1.2 sem alterar os binarios...\n'
-  python3 "$source_script" extract --private-dir "$private" --report "$private/extract.json"
+
+  if [[ ! -x "$resolve" ]]; then
+    # O ZIP original ocupa varios gigabytes, e a extracao ainda mais.
+    free_kib="$(df -Pk "$private" | awk 'NR==2 {print $4}')"
+    if [[ ! "$free_kib" =~ ^[0-9]+$ ]] || (( free_kib < 15*1024*1024 )); then
+      echo 'Menos de 15 GiB livres; operacao cancelada para evitar falta de disco.' >&2
+      exit 2
+    fi
+    echo 'Baixando ZIP oficial e extraindo na pasta privada deste Codespace...'
+    python3 "$source_script" download --private-dir "$private" --report "$private/download.json"
+    python3 "$source_script" extract --private-dir "$private" --report "$private/extract.json"
+  else
+    echo 'Executavel da edicao selecionada ja existe; download adicional dispensado.'
+  fi
   unset DAVINCI_RESOLVE_LINUX_URL
 fi
 
