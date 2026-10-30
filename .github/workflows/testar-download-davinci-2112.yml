@@ -1,0 +1,49 @@
+name: DaVinci 21.1.2 - testar URLs oficiais Free e Studio (sem download)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/testar-download-davinci-2112.yml'
+permissions:
+  contents: read
+jobs:
+  validar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Sintaxe dos scripts sem baixar arquivos
+        run: |
+          set -euo pipefail
+          python3 -m py_compile davinci-resolve/experiments/dvip/source.py
+          bash -n .devcontainer/davinci-codespaces/try-davinci.sh
+      - name: Validar origem e edicao Free e Studio sem tocar em segredos
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, subprocess, sys
+          from pathlib import Path
+          base=Path('davinci-resolve/experiments/dvip').resolve()
+          pairs=[
+            ('free','DaVinci_Resolve_21.1.2_Linux'),
+            ('studio','DaVinci_Resolve_Studio_21.1.2_Linux'),
+          ]
+          for edition,filename in pairs:
+              env=os.environ.copy()
+              env['DAVINCI_RESOLVE_LINUX_URL']='https://sw.blackmagicdesign.com/DaVinciResolve/v21.1.2/'+filename+'.zip?Expires=4102444800'
+              env['EXPECTED_EDITION']=edition
+              code="""import source,os
+          assert source.EDITION == os.environ['EXPECTED_EDITION']
+          assert source.NAME.endswith('Linux.run')
+          assert source.validate_url(os.environ['DAVINCI_RESOLVE_LINUX_URL'])
+          try:
+              source.validate_url('https://sw.blackmagicdesign.com.evil.invalid'+source.URL_PATH)
+          except source.Blocked: pass
+          else: raise AssertionError('Host falso aceito')
+          print('Validada edicao:', source.EDITION)
+          """
+              subprocess.run([sys.executable,'-c',code],env=env,cwd=base,check=True)
+          PY
