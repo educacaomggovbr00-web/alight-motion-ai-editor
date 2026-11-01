@@ -79,3 +79,9 @@ O editor MP4 com FFmpeg continua disponível independentemente desse teste.
 
 
 - **[Editar Emo Rap com Remotion](remotion-emo-rap/README.md)** — presets de lyric edits, React/TypeScript e render MP4 pelo GitHub Actions.
+
+## Licença
+
+Este projeto está licenciado sob a [MIT License](LICENSE).
+
+Repositório: [educacaomggovbr00-web/alight-motion-ai-editor](https://github.com/educacaomggovbr00-web/alight-motion-ai-editor).
